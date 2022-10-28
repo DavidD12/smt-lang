@@ -11,6 +11,7 @@ keywords = ["smt", "z3", "language", "solver"]
 # exclude = ["files/*"]
 include = [
     "**/*.rs",
+    "**/*.lalrpop",
     "Cargo.toml",
     "README.md"
 ]
