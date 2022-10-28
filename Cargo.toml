@@ -26,6 +26,6 @@ name = "smt_lang"
 path = "src/lib.rs"
 
 [[bin]]
-name = "main"
+name = "smt-lang"
 path = "bin/main.rs"
 
