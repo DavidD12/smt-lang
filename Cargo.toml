@@ -8,18 +8,18 @@ authors = ["David Doose <David.Doose@gmail.com>"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-lalrpop-util = { version = "0.19.7", features = ["lexer"] }
-regex = "1"
+lalrpop-util = { version = "0.19.8", features = ["lexer"] }
+regex = "1.6.0"
 # pretty_env_logger = "0.4.0"
 line-col = "0.2.1"
-log = "0.4.0"
-env_logger = "0.8.4"
+log = "0.4.17"
+env_logger = "0.9.1"
 z3 = "0.11.2"
-clap = { version = "4.0.11", features = ["derive"] }
+clap = { version = "4.0.18", features = ["derive"] }
 fraction = "0.12.1"
 
 [build-dependencies]
-lalrpop = { version = "0.19.7", features = ["lexer"] }
+lalrpop = { version = "0.19.8", features = ["lexer"] }
 
 [lib]
 name = "smt_lang"
