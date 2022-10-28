@@ -4,6 +4,7 @@ use super::*;
 pub struct Problem {
     variables: Vec<Variable>,
     functions: Vec<Function>,
+    constraints: Vec<Constraint>,
 }
 
 impl Problem {
@@ -11,6 +12,7 @@ impl Problem {
         Self {
             variables: vec![],
             functions: vec![],
+            constraints: vec![],
         }
     }
 
@@ -50,6 +52,24 @@ impl Problem {
         &self.functions
     }
 
+    //---------- Constraint ----------
+
+    pub fn add_constraint(&mut self, mut constraint: Constraint) -> ConstraintId {
+        let id = ConstraintId(self.constraints.len());
+        constraint.set_id(id);
+        self.constraints.push(constraint);
+        id
+    }
+
+    pub fn get_constraint(&self, id: ConstraintId) -> Option<&Constraint> {
+        let ConstraintId(n) = id;
+        self.constraints.get(n)
+    }
+
+    pub fn constraints(&self) -> &Vec<Constraint> {
+        &self.constraints
+    }
+
     //---------- Entry ----------
 
     pub fn entries(&self) -> Entries {
@@ -64,6 +84,8 @@ impl Problem {
     pub fn naming(&self) -> Vec<Naming> {
         let mut v = vec![];
         v.extend(self.variables.iter().map(|x| x.naming()));
+        v.extend(self.functions.iter().map(|x| x.naming()));
+        v.extend(self.constraints.iter().map(|x| x.naming()));
         v
     }
 
@@ -81,6 +103,24 @@ impl Problem {
         for x in self.functions.iter_mut() {
             x.resolve(&entries)?;
         }
+        for x in self.constraints.iter_mut() {
+            x.resolve(&entries)?;
+        }
+        Ok(())
+    }
+
+    //---------- Typing ----------
+
+    pub fn check_type(&self) -> Result<(), Error> {
+        for x in self.variables.iter() {
+            x.check_type(self)?;
+        }
+        for x in self.functions.iter() {
+            x.check_type(self)?;
+        }
+        for x in self.constraints.iter() {
+            x.check_type(self)?;
+        }
         Ok(())
     }
 }
@@ -90,6 +130,12 @@ impl Problem {
 impl std::fmt::Display for Problem {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         for v in self.variables.iter() {
+            write!(f, "{}\n", v.to_lang(self))?;
+        }
+        for v in self.functions.iter() {
+            write!(f, "{}\n", v.to_lang(self))?;
+        }
+        for v in self.constraints.iter() {
             write!(f, "{}\n", v.to_lang(self))?;
         }
         Ok(())
@@ -107,5 +153,11 @@ impl GetFromId<VariableId, Variable> for Problem {
 impl GetFromId<FunctionId, Function> for Problem {
     fn get(&self, i: FunctionId) -> Option<&Function> {
         self.get_function(i)
+    }
+}
+
+impl GetFromId<ConstraintId, Constraint> for Problem {
+    fn get(&self, i: ConstraintId) -> Option<&Constraint> {
+        self.get_constraint(i)
     }
 }

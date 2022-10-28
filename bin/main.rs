@@ -1,5 +1,5 @@
 use clap::Parser;
-use smt_lang::{load_file, problem::*};
+use smt_lang::{load_file, problem::*, solve::solve};
 use std::env;
 #[macro_use]
 extern crate log;
@@ -32,11 +32,10 @@ fn main() {
     match load_file(&mut problem, &args.file) {
         Ok(_) => {
             if args.verbose >= 2 {
-                info!(
-                    "-------------------------[ Input Model ]-------------------------\n{}",
-                    problem
-                );
+                info!("Problem\n{}", problem);
             }
+            let response = solve(&problem, args.verbose);
+            info!("{}", response.to_lang(&problem));
         }
         Err(_) => {}
     }

@@ -1,4 +1,5 @@
 use crate::parser::Position;
+use crate::problem::*;
 use lalrpop_util::lexer::Token;
 use lalrpop_util::ParseError;
 use line_col::LineColLookup;
@@ -21,6 +22,11 @@ pub enum Error {
     Resolve {
         name: String,
         position: Option<Position>,
+    },
+    Type {
+        expr: Expr,
+        typ: Type,
+        expected: Vec<Type>,
     },
 }
 
@@ -60,8 +66,36 @@ impl Error {
     }
 }
 
+fn expected_tokens(expected: &Vec<String>) -> String {
+    let mut s = "".to_string();
+    match expected.first() {
+        None => return s,
+        Some(t) => {
+            s.push_str(&t);
+            for t in expected[1..].iter() {
+                s.push_str(&format!(" or {}", t));
+            }
+        }
+    }
+    s
+}
+
+fn expected_types(problem: &Problem, expected: &Vec<Type>) -> String {
+    let mut s = "".to_string();
+    match expected.first() {
+        None => return s,
+        Some(t) => {
+            s.push_str(&t.to_lang(problem));
+            for t in expected[1..].iter() {
+                s.push_str(&format!(" or {}", t.to_lang(problem)));
+            }
+        }
+    }
+    s
+}
+
 impl crate::problem::ToLang for Error {
-    fn to_lang(&self, model: &crate::problem::Problem) -> String {
+    fn to_lang(&self, problem: &crate::problem::Problem) -> String {
         match self {
             Error::File { filename, message } => {
                 format!("cannot read file {} {}", filename, message)
@@ -75,7 +109,11 @@ impl crate::problem::ToLang for Error {
                     "parse error '{}' at {}, expecting: {:?}",
                     message, position, expected
                 ),
-                None => format!("parse error '{}', expecting: {:?}", message, expected),
+                None => format!(
+                    "parse error '{}', expecting: {}",
+                    message,
+                    expected_tokens(expected)
+                ),
             },
             Error::Duplicate {
                 name,
@@ -93,6 +131,30 @@ impl crate::problem::ToLang for Error {
                 } else {
                     format!("unresolved {}", name)
                 }
+            }
+            Error::Type {
+                expr,
+                typ,
+                expected,
+            } => {
+                let mut s = if !expected.is_empty() {
+                    format!(
+                        "type error: '{}' type is '{}' but expecting '{}'",
+                        expr.to_lang(problem),
+                        typ.to_lang(problem),
+                        expected_types(problem, expected)
+                    )
+                } else {
+                    format!(
+                        "type error: '{}' type is '{}'",
+                        expr.to_lang(problem),
+                        typ.to_lang(problem)
+                    )
+                };
+                if let Some(p) = expr.position() {
+                    s.push_str(&format!(" at {}", p));
+                }
+                s
             }
         }
     }

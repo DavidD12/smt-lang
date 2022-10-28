@@ -7,4 +7,6 @@ var r: Real = 0.1
 var f: Real = r
 var bb: Bool = b => true or false and not b
 
-var ii: Int = i + 1 * 2 - 3 / -1
+var ii: Real = (i + 1 * 2 - 3) / (-1 +2)
+
+constraint toto = bb and ii > 0.0 and b

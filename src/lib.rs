@@ -1,6 +1,8 @@
 pub mod error;
 pub mod parser;
 pub mod problem;
+pub mod solution;
+pub mod solve;
 
 use crate::problem::ToLang;
 
@@ -35,14 +37,14 @@ pub fn load_file(problem: &mut problem::Problem, filename: &str) -> Result<(), e
             return Err(e);
         }
     }
-    // // Check Type
-    // match problem.check_type() {
-    //     Ok(_) => info!("Typing OK"),
-    //     Err(e) => {
-    //         error!("{}", e.to_lang(problem));
-    //         return Err(e);
-    //     }
-    // }
-    //
+    // Check Type
+    match problem.check_type() {
+        Ok(_) => info!("Typing OK"),
+        Err(e) => {
+            error!("{}", e.to_lang(problem));
+            return Err(e);
+        }
+    }
+
     Ok(())
 }

@@ -41,8 +41,8 @@ impl Variable {
         }
     }
 
-    pub fn typ(&self) -> &Type {
-        &self.typ
+    pub fn typ(&self) -> Type {
+        self.typ
     }
 
     pub fn expr(&self) -> &Option<Expr> {
@@ -55,6 +55,16 @@ impl Variable {
         if let Some(e) = &self.expr {
             let resolved = e.resolve(entries)?;
             self.expr = Some(resolved);
+        }
+        Ok(())
+    }
+
+    //---------- Typing ----------
+
+    pub fn check_type(&self, problem: &Problem) -> Result<(), Error> {
+        if let Some(e) = &self.expr {
+            e.check_type(problem)?;
+            check_type(e, e.typ(problem), &[self.typ()])?;
         }
         Ok(())
     }

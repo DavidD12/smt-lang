@@ -10,6 +10,9 @@ pub use variable::*;
 pub mod function;
 pub use function::*;
 
+pub mod constraint;
+pub use constraint::*;
+
 pub mod expression;
 pub use expression::*;
 

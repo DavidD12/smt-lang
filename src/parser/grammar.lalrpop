@@ -25,6 +25,7 @@ pub Problem: () = Entry* => {
 Entry: () = {
     Include,
     Variable,
+    Constraint,
 };
 
 //------------------------- Include -------------------------
@@ -39,6 +40,14 @@ Variable: () = "var" <i:Identifier> ":" <t:Type> <e:Assign?> => {
     let position = Some(i.position.clone());
     let v = Variable::new(i.name, t, e, position);
     parser.problem.add_variable(v);
+};    
+
+//------------------------- Constraint -------------------------
+
+Constraint: () = "constraint" <i:Identifier> <e:Assign> => {
+    let position = Some(i.position.clone());
+    let c = Constraint::new(i.name, e, position);
+    parser.problem.add_constraint(c);
 };    
 
 //------------------------- Assign -------------------------
@@ -120,6 +129,7 @@ Term: Expr = {
         Expr::RealValue(d, Some(position))
     },
     <x:Identifier> => Expr::Unresolved(x.name, Some(x.position)),
+    "(" <Expr> ")",
 };
 
 //------------------------- Operator -------------------------
