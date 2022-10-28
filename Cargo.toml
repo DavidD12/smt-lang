@@ -6,8 +6,14 @@ authors = ["David Doose <David.Doose@gmail.com>"]
 license = "LGPL-3.0-only"
 description = "Sat Modulo Theory Language"
 repository = "https://github.com/DavidD12/smt-lang"
+readme = "README.md"
 keywords = ["smt", "z3", "language", "solver"]
-exclude = ["files/*"]
+# exclude = ["files/*"]
+include = [
+    "**/*.rs",
+    "Cargo.toml",
+    "README.md"
+]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
