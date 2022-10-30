@@ -36,11 +36,19 @@ xxx@XXX:~$ smt-lang --file problem_file.sl
 
 ## Variable
 
+```
 let <identifier> : <Type> [= <Expression>]
+```
 
 ## Constraint
 
+```
 constraint <identifier> = <Expression>
+```
 
 ## Expression
+
+```
+...
+```
 
