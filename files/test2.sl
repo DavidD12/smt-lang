@@ -1,4 +1,4 @@
 
 include "files/test.sl"
 
-var j: Int
+let j: Int

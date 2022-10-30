@@ -36,7 +36,7 @@ Include: () = "include" <file:String> => {
 
 //------------------------- Variable -------------------------
 
-Variable: () = "var" <i:Identifier> ":" <t:Type> <e:Assign?> => {
+Variable: () = "let" <i:Identifier> ":" <t:Type> <e:Assign?> => {
     let position = Some(i.position.clone());
     let v = Variable::new(i.name, t, e, position);
     parser.problem.add_variable(v);
