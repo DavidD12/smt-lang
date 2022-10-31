@@ -60,6 +60,7 @@ Type: Type = {
     "Bool" => Type::Bool,
     "Int"  => Type::Int,
     "Real" => Type::Real,
+    <min:Integer> ".." <max:Integer> => Type::Interval(min as isize, max as isize),
 };
 
 //========================= Expr =========================
@@ -120,7 +121,7 @@ Term: Expr = {
         let position = Position::new(parser.file(), lookup, l);
         Expr::BoolValue(b, Some(position))
     },
-    <l:@L> <i:UInteger> => {
+    <l:@L> <i:Integer> => {
         let position = Position::new(parser.file(), lookup, l);
         Expr::IntValue(i as isize, Some(position))
     },
@@ -186,7 +187,9 @@ Boolean: bool = {
     "true" => true,
 };
 
-UInteger: u64 = <i:r"[0-9]+"> => i.parse::<u64>().unwrap();
+Integer: i64 = <i:r"-?[0-9]+"> => i.parse::<i64>().unwrap();
+
+// UInteger: u64 = <i:r"[0-9]+"> => i.parse::<u64>().unwrap();
 
 Decimal: Fraction = <d:r"[0-9]+\.[0-9]+"> => Fraction::from_str(d).unwrap();
 

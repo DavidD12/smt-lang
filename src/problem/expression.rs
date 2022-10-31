@@ -158,16 +158,19 @@ impl Expr {
                 BinOp::Add => match left.typ(problem) {
                     Type::Int => Type::Int,
                     Type::Real => Type::Real,
+                    Type::Interval(_, _) => Type::Int,
                     _ => Type::Undefined,
                 },
                 BinOp::Sub => match left.typ(problem) {
                     Type::Int => Type::Int,
                     Type::Real => Type::Real,
+                    Type::Interval(_, _) => Type::Int,
                     _ => Type::Undefined,
                 },
                 BinOp::Mul => match left.typ(problem) {
                     Type::Int => Type::Int,
                     Type::Real => Type::Real,
+                    Type::Interval(_, _) => Type::Int,
                     _ => Type::Undefined,
                 },
                 BinOp::Div => Type::Real,
@@ -186,8 +189,8 @@ impl Expr {
                 e.check_type(problem)?;
                 let e_type = e.typ(problem);
                 match op {
-                    PreOp::Not => check_type(e, e_type, &[Type::Bool]),
-                    PreOp::Minus => check_type(e, e_type, &[Type::Int, Type::Real]),
+                    PreOp::Not => check_type_bool(e, e_type),
+                    PreOp::Minus => check_type_number(e, e_type),
                 }
             }
             Expr::BinExpr(l, op, r, _) => {
@@ -201,53 +204,91 @@ impl Expr {
                 }
                 // Compare
                 else if [BinOp::Lt, BinOp::Le, BinOp::Ge, BinOp::Gt].contains(op) {
-                    check_type(l, l_type, &[Type::Int, Type::Real])?;
+                    check_type_number(l, l_type)?;
+                    check_type_number(r, r_type)?;
                     check_same_type(l_type, r, r_type)
                 }
                 // Bool
                 else if [BinOp::And, BinOp::Or, BinOp::Implies].contains(op) {
-                    check_type(l, l_type, &[Type::Bool])?;
-                    check_type(r, r_type, &[Type::Bool])
+                    check_type_bool(l, l_type)?;
+                    check_type_bool(r, r_type)
                 }
                 // Arith
                 else if [BinOp::Add, BinOp::Sub, BinOp::Mul].contains(op) {
-                    check_type(l, l_type, &[Type::Int, Type::Real])?;
+                    check_type_number(l, l_type)?;
+                    check_type_number(r, r_type)?;
                     check_same_type(l_type, r, r_type)
                 }
                 // Div
                 else if *op == BinOp::Div {
-                    check_type(l, l_type, &[Type::Int, Type::Real])?;
-                    check_type(r, r_type, &[Type::Int, Type::Real])
+                    check_type_number(l, l_type)?;
+                    check_type_number(r, r_type)
                 } else {
                     panic!("undefined")
                 }
             }
             Expr::Variable(_, _) => Ok(()),
-            Expr::Unresolved(_, _) => check_type(self, self.typ(problem), &[]),
+            Expr::Unresolved(_, _) => panic!(),
         }
     }
 }
 
-pub fn check_type(expr: &Expr, expr_type: Type, expected: &[Type]) -> Result<(), Error> {
-    if expected.contains(&expr_type) {
+pub fn check_type_bool(expr: &Expr, expr_type: Type) -> Result<(), Error> {
+    if expr_type.is_bool() {
         Ok(())
     } else {
         Err(Error::Type {
             expr: expr.clone(),
             typ: expr_type,
-            expected: expected.to_vec(),
+            expected: vec![Type::Bool],
         })
     }
 }
 
-fn check_same_type(left_type: Type, right: &Expr, right_type: Type) -> Result<(), Error> {
-    if left_type == right_type {
+pub fn check_type_number(expr: &Expr, expr_type: Type) -> Result<(), Error> {
+    if expr_type.is_number() {
+        Ok(())
+    } else {
+        Err(Error::Type {
+            expr: expr.clone(),
+            typ: expr_type,
+            expected: vec![Type::Int, Type::Real],
+        })
+    }
+}
+
+// pub fn check_type_integer(expr: &Expr, expr_type: Type) -> Result<(), Error> {
+//     if expr_type.is_integer() {
+//         Ok(())
+//     } else {
+//         Err(Error::Type {
+//             expr: expr.clone(),
+//             typ: expr_type,
+//             expected: vec![Type::Int],
+//         })
+//     }
+// }
+
+// pub fn check_type(expr: &Expr, expr_type: Type, expected: &[Type]) -> Result<(), Error> {
+//     if expected.contains(&expr_type) {
+//         Ok(())
+//     } else {
+//         Err(Error::Type {
+//             expr: expr.clone(),
+//             typ: expr_type,
+//             expected: expected.to_vec(),
+//         })
+//     }
+// }
+
+pub fn check_same_type(left_type: Type, right: &Expr, right_type: Type) -> Result<(), Error> {
+    if right_type.conform_to(&left_type) {
         Ok(())
     } else {
         Err(Error::Type {
             expr: right.clone(),
             typ: right_type,
-            expected: vec![left_type],
+            expected: right_type.conform_list(),
         })
     }
 }

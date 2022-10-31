@@ -7,7 +7,7 @@ SMT-language is a simple input language (parsing/resolve/typing/translate/import
    ```console
     xxx@XXX:~$ sudo apt install z3
     ```
-   2. Other see [Z3Prover](https://github.com/Z3Prover/z3)
+   2. Or see [Z3Prover](https://github.com/Z3Prover/z3)
 2. Install Rust: [Rust](https://www.rust-lang.org/fr)
 3. Install SMT-Language:
    ```console
@@ -35,6 +35,7 @@ let r: Real
 let bb: Bool = not b 
 let j: Int
 let rr: Real = i / 10
+let k: -10..100 = i
 
 constraint cst1 = r > 2.5 and j <= 5
 constraint cst2 = b => j > 0
@@ -48,12 +49,13 @@ xxx@XXX:~$ smt-lang --file example.sl
 
 ## Solution
 ```
-var b: Bool = true
-var i: Int = 2
-var r: Real = 7/2
-var bb: Bool = false
-var j: Int = 1
-var rr: Real = 1/5
+    let b: Bool = true
+    let i: Int = 2
+    let r: Real = 7/2
+    let bb: Bool = false
+    let j: Int = 1
+    let rr: Real = 1/5
+    let k: -10..100 = 2
 ```
 
 ## Options
@@ -71,6 +73,7 @@ var rr: Real = 1/5
 - Bool: boolean type
 - Int: integer type (unbounded)
 - Real: real type
+- -2..10: int interval
 
 ## Variable
 
@@ -122,7 +125,6 @@ not <Expression>
 
 ### Comming Soon:
 
-- int interval
 - set
 - array
 - function

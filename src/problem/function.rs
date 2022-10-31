@@ -64,7 +64,7 @@ impl Function {
     pub fn check_type(&self, problem: &Problem) -> Result<(), Error> {
         if let Some(e) = &self.expr {
             e.check_type(problem)?;
-            check_type(e, e.typ(problem), &[self.typ()])?;
+            check_same_type(self.typ(), e, e.typ(problem))?;
         }
         Ok(())
     }

@@ -57,6 +57,10 @@ impl<'a> Smt<'a> {
                 let v = z3::ast::Real::new_const(self.ctx, variable.name());
                 self.real_variables.insert(variable.id(), v);
             }
+            Type::Interval(min, max) => {
+                let v = z3::ast::Int::new_const(self.ctx, variable.name());
+                self.int_variables.insert(variable.id(), v);
+            }
             Type::Undefined => panic!(),
         }
     }
@@ -83,6 +87,17 @@ impl<'a> Smt<'a> {
                     let e = self.to_real(e);
                     self.solver.assert(&v._eq(&e));
                 }
+            }
+            Type::Interval(min, max) => {
+                let v = self.int_variable(variable.id());
+                if let Some(e) = variable.expr() {
+                    let e = self.to_int(e);
+                    self.solver.assert(&v._eq(&e));
+                }
+                self.solver
+                    .assert(&v.ge(&z3::ast::Int::from_i64(self.ctx, min as i64)));
+                self.solver
+                    .assert(&v.le(&z3::ast::Int::from_i64(self.ctx, max as i64)));
             }
             Type::Undefined => panic!(),
         }

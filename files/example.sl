@@ -9,5 +9,7 @@ let bb: Bool = not b
 let j: Int
 let rr: Real = i / 10
 
+let k: -10..100 = i
+
 constraint cst1 = r > 2.5 and j <= 5
 constraint cst2 = b => j > 0

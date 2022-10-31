@@ -36,6 +36,11 @@ impl Solution {
                     };
                     real_variables.insert(variable.id(), value);
                 }
+                Type::Interval(_, _) => {
+                    let e = smt.int_variable(variable.id());
+                    let value = model.eval(e, true).unwrap().as_i64().unwrap();
+                    int_variables.insert(variable.id(), value as isize);
+                }
                 Type::Undefined => panic!(),
             }
         }
@@ -55,19 +60,26 @@ impl ToLang for Solution {
         for variable in problem.variables().iter() {
             match variable.typ() {
                 Type::Bool => s.push_str(&format!(
-                    "var {}: Bool = {}\n",
+                    "let {}: Bool = {}\n",
                     variable.name(),
                     self.bool_variables.get(&variable.id()).unwrap()
                 )),
                 Type::Int => s.push_str(&format!(
-                    "var {}: Int = {}\n",
+                    "let {}: Int = {}\n",
                     variable.name(),
                     self.int_variables.get(&variable.id()).unwrap()
                 )),
                 Type::Real => s.push_str(&format!(
-                    "var {}: Real = {}\n",
+                    "let {}: Real = {}\n",
                     variable.name(),
                     self.real_variables.get(&variable.id()).unwrap()
+                )),
+                Type::Interval(min, max) => s.push_str(&format!(
+                    "let {}: {}..{} = {}\n",
+                    variable.name(),
+                    min,
+                    max,
+                    self.int_variables.get(&variable.id()).unwrap()
                 )),
                 Type::Undefined => panic!(),
             }
