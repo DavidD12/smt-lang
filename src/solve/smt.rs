@@ -43,31 +43,46 @@ impl<'a> Smt<'a> {
 
     //------------------------- Variable -------------------------
 
-    fn add_variable(&mut self, variable: &Variable) {
+    fn declare_variable(&mut self, variable: &Variable) {
         match variable.typ() {
             Type::Bool => {
                 let v = z3::ast::Bool::new_const(self.ctx, variable.name());
-                if let Some(e) = variable.expr() {
-                    let e = self.to_bool(e);
-                    self.solver.assert(&v._eq(&e));
-                }
                 self.bool_variables.insert(variable.id(), v);
             }
             Type::Int => {
                 let v = z3::ast::Int::new_const(self.ctx, variable.name());
-                if let Some(e) = variable.expr() {
-                    let e = self.to_int(e);
-                    self.solver.assert(&v._eq(&e));
-                }
                 self.int_variables.insert(variable.id(), v);
             }
             Type::Real => {
                 let v = z3::ast::Real::new_const(self.ctx, variable.name());
+                self.real_variables.insert(variable.id(), v);
+            }
+            Type::Undefined => panic!(),
+        }
+    }
+
+    fn define_variable(&mut self, variable: &Variable) {
+        match variable.typ() {
+            Type::Bool => {
+                let v = self.bool_variable(variable.id());
+                if let Some(e) = variable.expr() {
+                    let e = self.to_bool(e);
+                    self.solver.assert(&v._eq(&e));
+                }
+            }
+            Type::Int => {
+                let v = self.int_variable(variable.id());
+                if let Some(e) = variable.expr() {
+                    let e = self.to_int(e);
+                    self.solver.assert(&v._eq(&e));
+                }
+            }
+            Type::Real => {
+                let v = self.real_variable(variable.id());
                 if let Some(e) = variable.expr() {
                     let e = self.to_real(e);
                     self.solver.assert(&v._eq(&e));
                 }
-                self.real_variables.insert(variable.id(), v);
             }
             Type::Undefined => panic!(),
         }
@@ -75,7 +90,10 @@ impl<'a> Smt<'a> {
 
     fn add_variables(&mut self) {
         for v in self.problem.variables().iter() {
-            self.add_variable(v);
+            self.declare_variable(v);
+        }
+        for v in self.problem.variables().iter() {
+            self.define_variable(v);
         }
     }
 
@@ -93,17 +111,24 @@ impl<'a> Smt<'a> {
 
     //------------------------- Constraint -------------------------
 
-    fn add_constraint(&mut self, constraint: &Constraint) {
+    fn declare_constraint(&mut self, constraint: &Constraint) {
         let c = z3::ast::Bool::new_const(self.ctx, constraint.name());
+        self.constraints.insert(constraint.id(), c);
+    }
+
+    fn define_constraint(&mut self, constraint: &Constraint) {
+        let c = self.constraint(constraint.id());
         let e = self.to_bool(constraint.expr());
         self.solver.assert(&c._eq(&e));
         self.solver.assert(&c);
-        self.constraints.insert(constraint.id(), c);
     }
 
     fn add_constraints(&mut self) {
         for c in self.problem.constraints().iter() {
-            self.add_constraint(c);
+            self.declare_constraint(c);
+        }
+        for c in self.problem.constraints().iter() {
+            self.define_constraint(c);
         }
     }
 

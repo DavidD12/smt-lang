@@ -18,6 +18,10 @@
 xxx@XXX:~$ smt-lang --file problem_file.sl
 ```
 
+# Example
+
+Soon
+
 ## Options
 
 ### Verbose
@@ -49,10 +53,31 @@ constraint <identifier> = <Expression>
 ## Expression
 
 ```
-soon
+true | false
+not <Expression>
+<Expression> and <Expression>
+<Expression> or <Expression>
+<Expression> => <Expression>
 ```
 
-# Example
+```
+<Expression> = <Expression>
+<Expression> /= <Expression>
+<Expression> < <Expression>
+<Expression> <= <Expression>
+<Expression> > <Expression>
+<Expression> >= <Expression>
+```
 
-Soon
+```
+[0-9]+ | [0-9]+.[0-9]+
+- <Expression>
+<Expression> + <Expression>
+<Expression> - <Expression>
+<Expression> * <Expression>
+<Expression> / <Expression>
+```
 
+```
+( <Expression> )
+```
