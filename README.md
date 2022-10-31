@@ -20,7 +20,40 @@ xxx@XXX:~$ smt-lang --file problem_file.sl
 
 # Example
 
-Soon
+## Problem
+
+```
+let b: Bool
+let i: Int = j + 1 // single line comment
+let r: Real
+/* multi 
+   lines
+   comment
+*/
+let bb: Bool = not b 
+let j: Int
+let rr: Real = i / 10
+
+constraint cst1 = r > 2.5 and j <= 5
+constraint cst2 = b => j > 0
+
+```
+
+## Solve
+
+```console
+xxx@XXX:~$ smt-lang --file example.sl
+```
+
+## Solution
+```
+var b: Bool = true
+var i: Int = 2
+var r: Real = 7/2
+var bb: Bool = false
+var j: Int = 1
+var rr: Real = 1/5
+```
 
 ## Options
 
