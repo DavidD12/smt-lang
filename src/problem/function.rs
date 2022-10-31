@@ -18,6 +18,7 @@ impl Id for FunctionId {
 pub struct Function {
     id: FunctionId,
     name: String,
+    parameters: Vec<Parameter>,
     typ: Type,
     expr: Option<Expr>,
     position: Option<Position>,
@@ -35,10 +36,22 @@ impl Function {
         Self {
             id,
             name,
+            parameters: vec![],
             typ,
             expr,
             position,
         }
+    }
+
+    pub fn parameters(&self) -> &Vec<Parameter> {
+        &self.parameters
+    }
+
+    pub fn add_parameter(&mut self, mut parameter: Parameter) -> ParameterId {
+        let id = ParameterId(self.id, self.parameters.len());
+        parameter.set_id(id);
+        self.parameters.push(parameter);
+        id
     }
 
     pub fn typ(&self) -> Type {
@@ -112,7 +125,17 @@ impl Named<FunctionId> for Function {
 
 impl ToLang for Function {
     fn to_lang(&self, problem: &Problem) -> String {
-        let mut s = format!("fun {}: {}", self.name(), self.typ.to_lang(problem));
+        let mut s = format!("fun {}(", self.name());
+        if !self.parameters.is_empty() {
+            s.push_str(&format!(
+                "{}",
+                self.parameters.first().unwrap().to_lang(problem)
+            ));
+            for p in self.parameters[1..].iter() {
+                s.push_str(&format!(", {}", p.to_lang(problem)));
+            }
+        }
+        s.push_str(&format!("): {}", self.typ.to_lang(problem)));
         if let Some(e) = &self.expr {
             s.push_str(&format!(" = {}", e.to_lang(problem)));
         }

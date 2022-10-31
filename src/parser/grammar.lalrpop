@@ -25,6 +25,7 @@ pub Problem: () = Entry* => {
 Entry: () = {
     Include,
     Variable,
+    Function,
     Constraint,
 };
 
@@ -41,6 +42,33 @@ Variable: () = "let" <i:Identifier> ":" <t:Type> <e:Assign?> => {
     let v = Variable::new(i.name, t, e, position);
     parser.problem.add_variable(v);
 };    
+
+//------------------------- Function -------------------------
+
+Function: () = "let" <i:Identifier> "(" <p:Parameters> ")" ":" <t:Type> <e:Assign?> => {
+    let position = Some(i.position.clone());
+    let mut f = Function::new(i.name, t, e, position);
+    for x in p {
+        f.add_parameter(x);
+    }
+    parser.problem.add_function(f);
+};    
+
+//------------------------- Parameter -------------------------
+
+Parameter: Parameter = <i:Identifier> ":" <t:Type> => {
+    let position = Some(i.position.clone());
+    Parameter::new(i.name, t, position)
+};
+
+Parameters: Vec<Parameter> = <p:Parameter> <l:ParameterNext*> => {
+    let mut parameters = Vec::new();
+    parameters.push(p);
+    parameters.extend(l);
+    parameters
+};
+
+ParameterNext: Parameter = "," <p:Parameter> => p;
 
 //------------------------- Constraint -------------------------
 

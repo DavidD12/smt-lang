@@ -10,6 +10,7 @@ let j: Int
 let rr: Real = i / 10
 
 let k: -10..100 = i
+let f(i: Int, b: Bool, r: Real, j: 1..10): Bool = false
 
 constraint cst1 = r > 2.5 and j <= 5
 constraint cst2 = b => j > 0
