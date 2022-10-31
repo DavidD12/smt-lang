@@ -23,6 +23,10 @@ pub enum Error {
         name: String,
         position: Option<Position>,
     },
+    Interval {
+        name: String,
+        position: Option<Position>,
+    },
     Type {
         expr: Expr,
         typ: Type,
@@ -130,6 +134,13 @@ impl crate::problem::ToLang for Error {
                     format!("unresolved {} at {}", name, position)
                 } else {
                     format!("unresolved {}", name)
+                }
+            }
+            Error::Interval { name, position } => {
+                if let Some(position) = position {
+                    format!("malformed interval {} at {}", name, position)
+                } else {
+                    format!("malformed interval {}", name)
                 }
             }
             Error::Type {

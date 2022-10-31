@@ -37,6 +37,14 @@ pub fn load_file(problem: &mut problem::Problem, filename: &str) -> Result<(), e
             return Err(e);
         }
     }
+    // Check Interval
+    match problem.check_interval() {
+        Ok(_) => info!("Interval OK"),
+        Err(e) => {
+            error!("{}", e.to_lang(problem));
+            return Err(e);
+        }
+    }
     // Check Type
     match problem.check_type() {
         Ok(_) => info!("Typing OK"),

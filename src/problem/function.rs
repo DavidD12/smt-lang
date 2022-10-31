@@ -59,6 +59,24 @@ impl Function {
         Ok(())
     }
 
+    //---------- Interval ----------
+
+    pub fn check_interval(&self, problem: &Problem) -> Result<(), Error> {
+        match self.typ() {
+            Type::Interval(min, max) => {
+                if min > max {
+                    Err(Error::Interval {
+                        name: self.typ().to_lang(problem),
+                        position: self.position.clone(),
+                    })
+                } else {
+                    Ok(())
+                }
+            }
+            _ => Ok(()),
+        }
+    }
+
     //---------- Typing ----------
 
     pub fn check_type(&self, problem: &Problem) -> Result<(), Error> {

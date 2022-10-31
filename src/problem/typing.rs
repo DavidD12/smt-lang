@@ -103,7 +103,7 @@ impl ToLang for Type {
             Type::Bool => "Bool".into(),
             Type::Int => "Int".into(),
             Type::Real => "Real".into(),
-            Type::Interval(min, max) => format!("{} .. {}", min, max),
+            Type::Interval(min, max) => format!("{}..{}", min, max),
             Type::Undefined => "Undefined".into(),
         }
     }

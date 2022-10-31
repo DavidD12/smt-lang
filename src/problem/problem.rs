@@ -109,6 +109,18 @@ impl Problem {
         Ok(())
     }
 
+    //---------- Interval ----------
+
+    pub fn check_interval(&self) -> Result<(), Error> {
+        for x in self.variables.iter() {
+            x.check_interval(self)?;
+        }
+        for x in self.functions.iter() {
+            x.check_interval(self)?;
+        }
+        Ok(())
+    }
+
     //---------- Typing ----------
 
     pub fn check_type(&self) -> Result<(), Error> {
