@@ -1,3 +1,5 @@
+SMT-language is a simple input language (parsing/resolve/typing/translate/import). It's main objective is to ease the use Sat Modulo Theory solver(s) (actually z3).
+
 # Install
 
 1. Intall z3 prover
@@ -36,7 +38,6 @@ let rr: Real = i / 10
 
 constraint cst1 = r > 2.5 and j <= 5
 constraint cst2 = b => j > 0
-
 ```
 
 ## Solve
@@ -86,6 +87,10 @@ constraint <identifier> = <Expression>
 ## Expression
 
 ```
+include ".+"
+```
+
+```
 true | false
 not <Expression>
 <Expression> and <Expression>
@@ -114,3 +119,15 @@ not <Expression>
 ```
 ( <Expression> )
 ```
+
+### Comming Soon:
+
+- int interval
+- set
+- array
+- function
+- enum
+- struct
+- forall/exists/in expressions
+- minimize/maximize/pareto
+  
