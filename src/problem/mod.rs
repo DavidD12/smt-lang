@@ -72,3 +72,9 @@ pub fn check_duplicate(names: Vec<Naming>) -> Result<(), Error> {
 pub trait ToLang {
     fn to_lang(&self, problem: &Problem) -> String;
 }
+
+//------------------------- ToEntry -------------------------
+
+pub trait ToEntry {
+    fn to_entry(&self, problem: &Problem) -> d_stuff::Entry;
+}

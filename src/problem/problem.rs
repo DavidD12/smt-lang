@@ -135,6 +135,28 @@ impl Problem {
         }
         Ok(())
     }
+
+    //---------- To Entry ----------
+
+    pub fn to_entry(&self) -> d_stuff::Entry {
+        d_stuff::Entry::new(
+            d_stuff::Status::Info,
+            d_stuff::Text::new(
+                "Problem",
+                termion::style::Bold.to_string(),
+                termion::color::Blue.fg_str(),
+            ),
+            None,
+            vec![d_stuff::Message::new(
+                None,
+                d_stuff::Text::new(
+                    format!("{}", self),
+                    termion::style::Reset.to_string(),
+                    termion::color::White.fg_str(),
+                ),
+            )],
+        )
+    }
 }
 
 //------------------------- Display -------------------------

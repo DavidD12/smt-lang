@@ -25,7 +25,7 @@ pub Problem: () = Entry* => {
 Entry: () = {
     Include,
     Variable,
-    Function,
+    // Function,
     Constraint,
 };
 

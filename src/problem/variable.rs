@@ -112,7 +112,7 @@ impl Named<VariableId> for Variable {
 
 impl ToLang for Variable {
     fn to_lang(&self, problem: &Problem) -> String {
-        let mut s = format!("var {}: {}", self.name(), self.typ.to_lang(problem));
+        let mut s = format!("let {}: {}", self.name(), self.typ.to_lang(problem));
         if let Some(e) = &self.expr {
             s.push_str(&format!(" = {}", e.to_lang(problem)));
         }

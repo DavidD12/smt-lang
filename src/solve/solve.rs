@@ -2,7 +2,7 @@ use super::*;
 use crate::problem::*;
 use crate::solution::Solution;
 
-pub fn solve(problem: &Problem, verbose: u8) -> Response {
+pub fn solve(pretty: &mut d_stuff::Pretty, problem: &Problem, verbose: u8) -> Response {
     let cfg = z3::Config::new();
     let ctx = z3::Context::new(&cfg);
     let solver = z3::Solver::new(&ctx);
@@ -10,7 +10,7 @@ pub fn solve(problem: &Problem, verbose: u8) -> Response {
     // Initialize
     smt.init();
     if verbose >= 3 {
-        info!("SMT Problem\n{}", solver);
+        pretty.add(smt.solver_to_entry());
     }
     // Solve
     match solver.check() {
@@ -19,7 +19,7 @@ pub fn solve(problem: &Problem, verbose: u8) -> Response {
         z3::SatResult::Sat => {
             let z3_model = solver.get_model().unwrap();
             if verbose >= 3 {
-                info!("SMT Model\n{}", z3_model);
+                pretty.add(smt.model_to_entry());
             }
             Response::Solution(Solution::new(&smt, &z3_model))
         }

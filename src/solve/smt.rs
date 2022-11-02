@@ -57,7 +57,7 @@ impl<'a> Smt<'a> {
                 let v = z3::ast::Real::new_const(self.ctx, variable.name());
                 self.real_variables.insert(variable.id(), v);
             }
-            Type::Interval(min, max) => {
+            Type::Interval(_, _) => {
                 let v = z3::ast::Int::new_const(self.ctx, variable.name());
                 self.int_variables.insert(variable.id(), v);
             }
@@ -283,5 +283,47 @@ impl<'a> Smt<'a> {
     pub fn init(&mut self) {
         self.add_variables();
         self.add_constraints();
+    }
+
+    //------------------------- To Entry -------------------------
+
+    pub fn solver_to_entry(&self) -> d_stuff::Entry {
+        d_stuff::Entry::new(
+            d_stuff::Status::Info,
+            d_stuff::Text::new(
+                "SMT Problem",
+                termion::style::Bold.to_string(),
+                termion::color::Blue.fg_str(),
+            ),
+            None,
+            vec![d_stuff::Message::new(
+                None,
+                d_stuff::Text::new(
+                    format!("{}", self.solver),
+                    termion::style::Reset.to_string(),
+                    termion::color::White.fg_str(),
+                ),
+            )],
+        )
+    }
+
+    pub fn model_to_entry(&self) -> d_stuff::Entry {
+        d_stuff::Entry::new(
+            d_stuff::Status::Info,
+            d_stuff::Text::new(
+                "SMT Model",
+                termion::style::Bold.to_string(),
+                termion::color::Blue.fg_str(),
+            ),
+            None,
+            vec![d_stuff::Message::new(
+                None,
+                d_stuff::Text::new(
+                    format!("{}", self.solver.get_model().unwrap()),
+                    termion::style::Reset.to_string(),
+                    termion::color::White.fg_str(),
+                ),
+            )],
+        )
     }
 }
