@@ -4,33 +4,33 @@ use crate::parser::Position;
 //------------------------- Id -------------------------
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Hash)]
-pub struct VariableId(pub usize);
+pub struct AttributeId(pub StructureId, pub usize);
 
-impl Id for VariableId {
+impl Id for AttributeId {
     fn empty() -> Self {
-        Self(0)
+        Self(StructureId::empty(), 0)
     }
 }
 
-//------------------------- Variable -------------------------
+//------------------------- Attribute -------------------------
 
 #[derive(Clone)]
-pub struct Variable {
-    id: VariableId,
+pub struct Attribute {
+    id: AttributeId,
     name: String,
     typ: Type,
     expr: Option<Expr>,
     position: Option<Position>,
 }
 
-impl Variable {
+impl Attribute {
     pub fn new<S: Into<String>>(
         name: S,
         typ: Type,
         expr: Option<Expr>,
         position: Option<Position>,
     ) -> Self {
-        let id = VariableId::empty();
+        let id = AttributeId::empty();
         let name = name.into();
         Self {
             id,
@@ -87,12 +87,12 @@ impl Variable {
 
 //------------------------- Named -------------------------
 
-impl Named<VariableId> for Variable {
-    fn id(&self) -> VariableId {
+impl Named<AttributeId> for Attribute {
+    fn id(&self) -> AttributeId {
         self.id
     }
 
-    fn set_id(&mut self, id: VariableId) {
+    fn set_id(&mut self, id: AttributeId) {
         self.id = id;
     }
 
@@ -107,9 +107,9 @@ impl Named<VariableId> for Variable {
 
 //------------------------- ToLang -------------------------
 
-impl ToLang for Variable {
+impl ToLang for Attribute {
     fn to_lang(&self, problem: &Problem) -> String {
-        let mut s = format!("let {}: {}", self.name(), self.typ.to_lang(problem));
+        let mut s = format!("    {}: {}", self.name(), self.typ.to_lang(problem));
         if let Some(e) = &self.expr {
             s.push_str(&format!(" = {}", e.to_lang(problem)));
         }

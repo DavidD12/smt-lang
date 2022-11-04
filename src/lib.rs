@@ -51,10 +51,19 @@ pub fn load_file(
         Err(e) => return Err(e),
     }
     // Resolve
+    match problem.resolve_type() {
+        Ok(_) => {
+            if verbose >= 2 {
+                pretty.add(ok_entry("ResolveT"));
+                pretty.print();
+            }
+        }
+        Err(e) => return Err(e),
+    }
     match problem.resolve() {
         Ok(_) => {
             if verbose >= 2 {
-                pretty.add(ok_entry("Resolve "));
+                pretty.add(ok_entry("ResolveE"));
                 pretty.print();
             }
         }

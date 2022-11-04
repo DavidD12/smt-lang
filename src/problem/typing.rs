@@ -8,8 +8,10 @@ pub enum Type {
     Int,
     Real,
     Interval(isize, isize),
-    Function(Vec<Type>, Box<Type>),
+    Structure(StructureId),
+    // Function(Vec<Type>, Box<Type>),
     //
+    Unresolved(String, Option<Position>),
     Undefined,
 }
 
@@ -20,8 +22,34 @@ impl Type {
             Type::Int => false,
             Type::Real => false,
             Type::Interval(_, _) => true,
-            Type::Function(_, _) => false,
+            Type::Structure(_) => true,
+            // Type::Function(_, _) => false,
+            Type::Unresolved(_, _) => false,
             Type::Undefined => false,
+        }
+    }
+
+    pub fn resolve_type(&self, entries: &TypeEntries) -> Result<Type, Error> {
+        match self {
+            Type::Bool => Ok(self.clone()),
+            Type::Int => Ok(self.clone()),
+            Type::Real => Ok(self.clone()),
+            Type::Interval(_, _) => Ok(self.clone()),
+            Type::Structure(_) => Ok(self.clone()),
+            Type::Unresolved(name, position) => match entries.get(&name) {
+                Some(entry) => match entry.typ() {
+                    TypeEntryType::Structure(id) => Ok(Type::Structure(id)),
+                    _ => Err(Error::Resolve {
+                        name: name.clone(),
+                        position: position.clone(),
+                    }),
+                },
+                None => Err(Error::Resolve {
+                    name: name.clone(),
+                    position: position.clone(),
+                }),
+            },
+            Type::Undefined => todo!(),
         }
     }
 
@@ -73,6 +101,13 @@ impl Type {
             Type::Int => true,
             Type::Real => true,
             Type::Interval(_, _) => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_strcuture(&self) -> bool {
+        match self {
+            Type::Structure(_) => true,
             _ => false,
         }
     }
@@ -148,17 +183,19 @@ impl ToLang for Type {
             Type::Int => "Int".into(),
             Type::Real => "Real".into(),
             Type::Interval(min, max) => format!("{}..{}", min, max),
-            Type::Function(param, ret) => {
-                let mut s = "(".to_string();
-                if let Some((first, others)) = param.split_first() {
-                    s.push_str(&first.to_lang(problem));
-                    for p in others {
-                        s.push_str(&format!(", {}", p.to_lang(problem)));
-                    }
-                }
-                s.push_str(&format!(") -> {}", ret.to_lang(problem)));
-                s
-            }
+            // Type::Function(param, ret) => {
+            //     let mut s = "(".to_string();
+            //     if let Some((first, others)) = param.split_first() {
+            //         s.push_str(&first.to_lang(problem));
+            //         for p in others {
+            //             s.push_str(&format!(", {}", p.to_lang(problem)));
+            //         }
+            //     }
+            //     s.push_str(&format!(") -> {}", ret.to_lang(problem)));
+            //     s
+            // }
+            Type::Structure(id) => problem.get(*id).unwrap().name().to_string(),
+            Type::Unresolved(name, _) => format!("{}?", name),
             Type::Undefined => "?".into(),
         }
     }

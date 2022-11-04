@@ -2,6 +2,7 @@ use super::*;
 
 #[derive(Clone)]
 pub struct Problem {
+    structures: Vec<Structure>,
     variables: Vec<Variable>,
     functions: Vec<Function>,
     constraints: Vec<Constraint>,
@@ -10,10 +11,29 @@ pub struct Problem {
 impl Problem {
     pub fn new() -> Self {
         Self {
+            structures: vec![],
             variables: vec![],
             functions: vec![],
             constraints: vec![],
         }
+    }
+
+    //---------- Structure ----------
+
+    pub fn add_structure(&mut self, mut structure: Structure) -> StructureId {
+        let id = StructureId(self.structures.len());
+        structure.set_id(id);
+        self.structures.push(structure);
+        id
+    }
+
+    pub fn get_structure(&self, id: StructureId) -> Option<&Structure> {
+        let StructureId(n) = id;
+        self.structures.get(n)
+    }
+
+    pub fn structures(&self) -> &Vec<Structure> {
+        &self.structures
     }
 
     //---------- Variable ----------
@@ -72,6 +92,16 @@ impl Problem {
 
     //---------- Entry ----------
 
+    pub fn type_entries(&self) -> TypeEntries {
+        let mut v = vec![];
+        v.extend(
+            self.structures
+                .iter()
+                .map(|x| TypeEntry::from_id(self, x.id())),
+        );
+        TypeEntries::new(v)
+    }
+
     pub fn entries(&self) -> Entries {
         let mut v = vec![];
         v.extend(self.variables.iter().map(|x| Entry::from_id(self, x.id())));
@@ -83,6 +113,7 @@ impl Problem {
 
     pub fn naming(&self) -> Vec<Naming> {
         let mut v = vec![];
+        v.extend(self.structures.iter().map(|x| x.naming()));
         v.extend(self.variables.iter().map(|x| x.naming()));
         v.extend(self.functions.iter().map(|x| x.naming()));
         v.extend(self.constraints.iter().map(|x| x.naming()));
@@ -91,16 +122,36 @@ impl Problem {
 
     pub fn duplicate(&self) -> Result<(), Error> {
         check_duplicate(self.naming())?;
-        for fun in self.functions.iter() {
-            fun.duplicate()?;
+        for x in self.structures.iter() {
+            x.duplicate()?;
+        }
+        for x in self.functions.iter() {
+            x.duplicate()?;
         }
         Ok(())
     }
 
     //---------- Resolve ----------
 
+    pub fn resolve_type(&mut self) -> Result<(), Error> {
+        let entries = self.type_entries();
+        for x in self.structures.iter_mut() {
+            x.resolve_type(&entries)?;
+        }
+        for x in self.variables.iter_mut() {
+            x.resolve_type(&entries)?;
+        }
+        for x in self.functions.iter_mut() {
+            x.resolve_type(&entries)?;
+        }
+        Ok(())
+    }
+
     pub fn resolve(&mut self) -> Result<(), Error> {
         let entries = self.entries();
+        for x in self.structures.iter_mut() {
+            x.resolve(&entries)?;
+        }
         for x in self.variables.iter_mut() {
             x.resolve(&entries)?;
         }
@@ -176,20 +227,29 @@ impl Problem {
 
 impl std::fmt::Display for Problem {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        for v in self.variables.iter() {
-            write!(f, "{}\n", v.to_lang(self))?;
+        for x in self.structures.iter() {
+            write!(f, "{}\n", x.to_lang(self))?;
         }
-        for v in self.functions.iter() {
-            write!(f, "{}\n", v.to_lang(self))?;
+        for x in self.variables.iter() {
+            write!(f, "{}\n", x.to_lang(self))?;
         }
-        for v in self.constraints.iter() {
-            write!(f, "{}\n", v.to_lang(self))?;
+        for x in self.functions.iter() {
+            write!(f, "{}\n", x.to_lang(self))?;
+        }
+        for x in self.constraints.iter() {
+            write!(f, "{}\n", x.to_lang(self))?;
         }
         Ok(())
     }
 }
 
 //------------------------- Get From Id -------------------------
+
+impl GetFromId<StructureId, Structure> for Problem {
+    fn get(&self, id: StructureId) -> Option<&Structure> {
+        self.get_structure(id)
+    }
+}
 
 impl GetFromId<VariableId, Variable> for Problem {
     fn get(&self, id: VariableId) -> Option<&Variable> {

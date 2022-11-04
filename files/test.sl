@@ -1,12 +1,22 @@
-// include "files/test2.sl"
+let a: 1..2
 
-let b: Bool = true
-let i: Int = 10
-let r: Real = 0.1
+struct S {
+    a: Int = a
+    i: 1..10
+//    b: Bool = self.a > a + i
+    m(b: Bool, s: S): S
+    other: S
+    meth(b: Bool, i: 1..0, r: Real): Int = a
+}
 
-let f: Real = r
-let bb: Bool = b => true or false and not b
+let s: S
 
-let ii: Real = (i + 1 * 2 - 3) / (-1 +2)
+/*
+constraint C1 = (
+    s.a + s.i > 10
+)
 
-constraint toto = bb and ii > 0.0 and b
+constraint C2 = (
+    s.m(true, s) = s
+)
+*/

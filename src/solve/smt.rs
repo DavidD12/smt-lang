@@ -53,7 +53,12 @@ impl<'a> Smt<'a> {
             Type::Int => z3::Sort::int(self.ctx),
             Type::Real => z3::Sort::real(self.ctx),
             Type::Interval(_, _) => z3::Sort::int(self.ctx),
-            Type::Function(_, t) => self.to_sort(t),
+            // Type::Function(_, t) => self.to_sort(t),
+            Type::Structure(id) => {
+                // TODO
+                todo!()
+            }
+            Type::Unresolved(_, _) => panic!(),
             Type::Undefined => panic!(),
         }
     }
@@ -78,7 +83,12 @@ impl<'a> Smt<'a> {
                 let v = z3::ast::Int::new_const(self.ctx, variable.name());
                 self.int_variables.insert(variable.id(), v);
             }
-            Type::Function(_, _) => panic!(),
+            // Type::Function(_, _) => panic!(),
+            Type::Structure(id) => {
+                // TODO
+                todo!()
+            }
+            Type::Unresolved(_, _) => panic!(),
             Type::Undefined => panic!(),
         }
     }
@@ -117,7 +127,12 @@ impl<'a> Smt<'a> {
                 self.solver
                     .assert(&v.le(&z3::ast::Int::from_i64(self.ctx, max as i64)));
             }
-            Type::Function(_, _) => panic!(),
+            // Type::Function(_, _) => panic!(),
+            Type::Structure(id) => {
+                // TODO
+                todo!()
+            }
+            Type::Unresolved(_, _) => panic!(),
             Type::Undefined => panic!(),
         }
     }

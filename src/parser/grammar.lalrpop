@@ -16,14 +16,13 @@ match {
 
 //------------------------- Problem -------------------------
 
-pub Problem: () = Entry* => {
-
-};
+pub Problem: () = Entry* => {};
 
 //------------------------- Entry -------------------------
 
 Entry: () = {
     Include,
+    Structure,
     Variable,
     Function,
     Constraint,
@@ -34,6 +33,63 @@ Entry: () = {
 Include: () = "include" <file:String> => {
     parser.add(file);
 };
+
+//------------------------- Structure -------------------------
+
+Structure: () = "struct" <i:Identifier> "{" <elts:StructureElement*> "}" => {
+    let position = Some(i.position.clone());
+    let mut structure = Structure::new(i.name, position);
+    for e in elts.iter() {
+        match e {
+            StructureElement::Attribute(a) => {
+                structure.add_attribute(a.clone());
+            },
+            StructureElement::Method(m) => {
+                structure.add_method(m.clone());
+            }
+        }
+    }
+    parser.problem.add_structure(structure);
+};
+
+StructureElement: StructureElement = {
+    <a:Attribute> => StructureElement::Attribute(a),
+    <m:Method> => StructureElement::Method(m),
+};
+
+//------------------------- Attribute -------------------------
+
+Attribute: Attribute = <i:Identifier> ":" <t:Type> <e:Assign?> => {
+    let position = Some(i.position.clone());
+    Attribute::new(i.name, t, e, position)
+};
+
+//------------------------- Method -------------------------
+
+Method: Method = <i:Identifier> "(" <args:Arguments> ")" ":" <t:Type> <e:Assign?> => {
+    let position = Some(i.position.clone());
+    let mut m = Method::new(i.name, t, e, position);
+    for x in args {
+        m.add_argument(x);
+    }
+    m
+};   
+
+//------------------------- Argument -------------------------
+
+Argument: Argument = <i:Identifier> ":" <t:Type> => {
+    let position = Some(i.position.clone());
+    Argument::new(i.name, t, position)
+};
+
+Arguments: Vec<Argument> = <a:Argument> <l:ArgumentNext*> => {
+    let mut args = Vec::new();
+    args.push(a);
+    args.extend(l);
+    args
+};
+
+ArgumentNext: Argument = "," <a:Argument> => a;
 
 //------------------------- Variable -------------------------
 
@@ -89,6 +145,7 @@ Type: Type = {
     "Int"  => Type::Int,
     "Real" => Type::Real,
     <min:Integer> ".." <max:Integer> => Type::Interval(min as isize, max as isize),
+    <i:Identifier> => Type::Unresolved(i.name, Some(i.position)),
 };
 
 //========================= Expr =========================

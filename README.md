@@ -143,7 +143,6 @@ not <Expression>
 
 - set
 - array
-- function
 - enum
 - struct
 - forall/exists/in expressions

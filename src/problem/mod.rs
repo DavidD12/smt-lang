@@ -12,6 +12,15 @@ pub use function::*;
 pub mod parameter;
 pub use parameter::*;
 
+pub mod structure;
+pub use structure::*;
+pub mod attribute;
+pub use attribute::*;
+pub mod method;
+pub use method::*;
+pub mod argument;
+pub use argument::*;
+
 pub mod constraint;
 pub use constraint::*;
 
@@ -20,6 +29,8 @@ pub use expression::*;
 
 pub mod entry;
 pub use entry::*;
+pub mod type_entry;
+pub use type_entry::*;
 
 //------------------------- Id -------------------------
 

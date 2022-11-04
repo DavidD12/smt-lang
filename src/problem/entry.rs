@@ -7,6 +7,7 @@ pub enum EntryType {
     Variable(VariableId),
     Function(FunctionId),
     Parameter(ParameterId),
+    Argument(ArgumentId),
 }
 
 //------------------------- Entry -------------------------

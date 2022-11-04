@@ -4,39 +4,39 @@ use crate::parser::Position;
 //------------------------- Id -------------------------
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Hash)]
-pub struct FunctionId(pub usize);
+pub struct MethodId(pub StructureId, pub usize);
 
-impl Id for FunctionId {
+impl Id for MethodId {
     fn empty() -> Self {
-        Self(0)
+        Self(StructureId::empty(), 0)
     }
 }
 
-//------------------------- Function -------------------------
+//------------------------- Method -------------------------
 
 #[derive(Clone)]
-pub struct Function {
-    id: FunctionId,
+pub struct Method {
+    id: MethodId,
     name: String,
-    parameters: Vec<Parameter>,
+    arguments: Vec<Argument>,
     return_type: Type,
     expr: Option<Expr>,
     position: Option<Position>,
 }
 
-impl Function {
+impl Method {
     pub fn new<S: Into<String>>(
         name: S,
         return_type: Type,
         expr: Option<Expr>,
         position: Option<Position>,
     ) -> Self {
-        let id = FunctionId::empty();
+        let id = MethodId::empty();
         let name = name.into();
         Self {
             id,
             name,
-            parameters: vec![],
+            arguments: vec![],
             return_type,
             expr,
             position,
@@ -47,10 +47,6 @@ impl Function {
         self.return_type.clone()
     }
 
-    // pub fn typ(&self) -> Type {
-    //     Type::Function(self.parameters_type(), Box::new(self.return_type()))
-    // }
-
     pub fn expr(&self) -> &Option<Expr> {
         &self.expr
     }
@@ -59,39 +55,39 @@ impl Function {
         self.expr = None;
     }
 
-    //---------- Parameter ----------
+    //---------- Argument ----------
 
-    pub fn add_parameter(&mut self, mut parameter: Parameter) -> ParameterId {
-        let id = ParameterId(self.id, self.parameters.len());
-        parameter.set_id(id);
-        self.parameters.push(parameter);
+    pub fn add_argument(&mut self, mut argument: Argument) -> ArgumentId {
+        let id = ArgumentId(self.id, self.arguments.len());
+        argument.set_id(id);
+        self.arguments.push(argument);
         id
     }
 
-    pub fn get_parameter(&self, id: ParameterId) -> Option<&Parameter> {
-        let ParameterId(function_id, n) = id;
-        if self.id != function_id {
+    pub fn get_argument(&self, id: ArgumentId) -> Option<&Argument> {
+        let ArgumentId(method_id, n) = id;
+        if self.id != method_id {
             None
         } else {
-            self.parameters.get(n)
+            self.arguments.get(n)
         }
     }
 
-    pub fn parameters(&self) -> &Vec<Parameter> {
-        &self.parameters
+    pub fn arguments(&self) -> &Vec<Argument> {
+        &self.arguments
     }
 
-    pub fn parameters_type(&self) -> Vec<Type> {
-        self.parameters.iter().map(|p| p.typ().clone()).collect()
+    pub fn arguments_type(&self) -> Vec<Type> {
+        self.arguments.iter().map(|p| p.typ().clone()).collect()
     }
 
     //---------- Duplicate ----------
 
     pub fn duplicate(&self) -> Result<(), Error> {
-        for i in 0..self.parameters.len() - 1 {
-            let x = &self.parameters[i];
-            for j in i + 1..self.parameters.len() {
-                let y = &self.parameters[j];
+        for i in 0..self.arguments.len() - 1 {
+            let x = &self.arguments[i];
+            for j in i + 1..self.arguments.len() {
+                let y = &self.arguments[j];
                 if x.name() == y.name() {
                     return Err(Error::Duplicate {
                         name: x.name().to_string(),
@@ -108,7 +104,7 @@ impl Function {
 
     pub fn resolve_type(&mut self, entries: &TypeEntries) -> Result<(), Error> {
         self.return_type = self.return_type.resolve_type(entries)?;
-        for p in self.parameters.iter_mut() {
+        for p in self.arguments.iter_mut() {
             p.resolve_type(entries)?;
         }
         Ok(())
@@ -117,8 +113,8 @@ impl Function {
     pub fn resolve(&mut self, entries: &Entries) -> Result<(), Error> {
         if let Some(e) = &self.expr {
             let mut entries = entries.clone();
-            for p in self.parameters.iter() {
-                let entry = Entry::new(p.name().to_string(), EntryType::Parameter(p.id()));
+            for p in self.arguments.iter() {
+                let entry = Entry::new(p.name().to_string(), EntryType::Argument(p.id()));
                 entries = entries.add(entry);
             }
             let resolved = e.resolve(&entries)?;
@@ -131,7 +127,7 @@ impl Function {
 
     pub fn check_interval(&self, problem: &Problem) -> Result<(), Error> {
         self.return_type.check_interval(problem, &self.position)?;
-        for p in self.parameters.iter() {
+        for p in self.arguments.iter() {
             p.check_interval(problem)?;
         }
         Ok(())
@@ -140,7 +136,7 @@ impl Function {
     //---------- Bounded ----------
 
     pub fn check_bounded(&self, problem: &Problem) -> Result<(), Error> {
-        for p in self.parameters.iter() {
+        for p in self.arguments.iter() {
             p.check_bounded(problem)?;
         }
         Ok(())
@@ -159,12 +155,12 @@ impl Function {
 
 //------------------------- Named -------------------------
 
-impl Named<FunctionId> for Function {
-    fn id(&self) -> FunctionId {
+impl Named<MethodId> for Method {
+    fn id(&self) -> MethodId {
         self.id
     }
 
-    fn set_id(&mut self, id: FunctionId) {
+    fn set_id(&mut self, id: MethodId) {
         self.id = id;
     }
 
@@ -179,15 +175,15 @@ impl Named<FunctionId> for Function {
 
 //------------------------- ToLang -------------------------
 
-impl ToLang for Function {
+impl ToLang for Method {
     fn to_lang(&self, problem: &Problem) -> String {
-        let mut s = format!("let {}(", self.name());
-        if !self.parameters.is_empty() {
+        let mut s = format!("    {}(", self.name());
+        if !self.arguments.is_empty() {
             s.push_str(&format!(
                 "{}",
-                self.parameters.first().unwrap().to_lang(problem)
+                self.arguments.first().unwrap().to_lang(problem)
             ));
-            for p in self.parameters[1..].iter() {
+            for p in self.arguments[1..].iter() {
                 s.push_str(&format!(", {}", p.to_lang(problem)));
             }
         }
@@ -196,13 +192,5 @@ impl ToLang for Function {
             s.push_str(&format!(" = {}", e.to_lang(problem)));
         }
         s
-    }
-}
-
-//------------------------- Get From Id -------------------------
-
-impl GetFromId<ParameterId, Parameter> for Function {
-    fn get(&self, id: ParameterId) -> Option<&Parameter> {
-        self.get_parameter(id)
     }
 }
