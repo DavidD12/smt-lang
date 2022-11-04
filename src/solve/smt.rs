@@ -1,7 +1,7 @@
 use crate::combine::Combine;
 use crate::problem::*;
 use std::collections::HashMap;
-use z3::ast::{Ast, Dynamic};
+use z3::ast::Ast;
 
 pub struct Smt<'a> {
     problem: &'a Problem,

@@ -41,7 +41,6 @@ impl ToLang for Solution {
         let mut s = "".to_string();
         // Variables
         for variable in problem.variables().iter() {
-            let t = &variable.typ();
             let mut v = variable.clone();
             v.clear_expr();
             let value = self.variables.get(&v.id()).unwrap();
