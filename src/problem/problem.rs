@@ -90,7 +90,11 @@ impl Problem {
     }
 
     pub fn duplicate(&self) -> Result<(), Error> {
-        check_duplicate(self.naming())
+        check_duplicate(self.naming())?;
+        for fun in self.functions.iter() {
+            fun.duplicate()?;
+        }
+        Ok(())
     }
 
     //---------- Resolve ----------
@@ -117,6 +121,15 @@ impl Problem {
         }
         for x in self.functions.iter() {
             x.check_interval(self)?;
+        }
+        Ok(())
+    }
+
+    //---------- Bounded ----------
+
+    pub fn check_bounded(&self) -> Result<(), Error> {
+        for x in self.functions.iter() {
+            x.check_bounded(self)?;
         }
         Ok(())
     }
@@ -179,19 +192,29 @@ impl std::fmt::Display for Problem {
 //------------------------- Get From Id -------------------------
 
 impl GetFromId<VariableId, Variable> for Problem {
-    fn get(&self, i: VariableId) -> Option<&Variable> {
-        self.get_variable(i)
+    fn get(&self, id: VariableId) -> Option<&Variable> {
+        self.get_variable(id)
     }
 }
 
 impl GetFromId<FunctionId, Function> for Problem {
-    fn get(&self, i: FunctionId) -> Option<&Function> {
-        self.get_function(i)
+    fn get(&self, id: FunctionId) -> Option<&Function> {
+        self.get_function(id)
+    }
+}
+impl GetFromId<ParameterId, Parameter> for Problem {
+    fn get(&self, id: ParameterId) -> Option<&Parameter> {
+        let ParameterId(function_id, _) = id;
+        if let Some(function) = self.get(function_id) {
+            function.get(id)
+        } else {
+            None
+        }
     }
 }
 
 impl GetFromId<ConstraintId, Constraint> for Problem {
-    fn get(&self, i: ConstraintId) -> Option<&Constraint> {
-        self.get_constraint(i)
+    fn get(&self, id: ConstraintId) -> Option<&Constraint> {
+        self.get_constraint(id)
     }
 }

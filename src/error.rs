@@ -29,6 +29,10 @@ pub enum Error {
         name: String,
         position: Option<Position>,
     },
+    Bounded {
+        name: String,
+        position: Option<Position>,
+    },
     Type {
         expr: Expr,
         typ: Type,
@@ -77,109 +81,81 @@ impl Error {
     }
 }
 
-fn expected_tokens(expected: &Vec<String>) -> String {
-    let mut s = "".to_string();
-    match expected.first() {
-        None => return s,
-        Some(t) => {
-            s.push_str(&t);
-            for t in expected[1..].iter() {
-                s.push_str(&format!(" or {}", t));
-            }
-        }
-    }
-    s
-}
+// //------------------------- ToLang -------------------------
 
-fn expected_types(problem: &Problem, expected: &Vec<Type>) -> String {
-    let mut s = "".to_string();
-    match expected.first() {
-        None => return s,
-        Some(t) => {
-            s.push_str(&t.to_lang(problem));
-            for t in expected[1..].iter() {
-                s.push_str(&format!(" or {}", t.to_lang(problem)));
-            }
-        }
-    }
-    s
-}
-
-//------------------------- ToLang -------------------------
-
-impl ToLang for Error {
-    fn to_lang(&self, problem: &crate::problem::Problem) -> String {
-        match self {
-            Error::File { filename, message } => {
-                format!("cannot read file {} {}", filename, message)
-            }
-            Error::Parse {
-                message,
-                token,
-                position,
-                expected,
-            } => match position {
-                Some(position) => format!(
-                    "parse error '{}' at {}, expecting: {:?}",
-                    message, position, expected
-                ),
-                None => format!(
-                    "parse error '{}', expecting: {}",
-                    message,
-                    expected_tokens(expected)
-                ),
-            },
-            Error::Duplicate {
-                name,
-                first,
-                second,
-            } => match (first, second) {
-                (None, None) => format!("duplicate '{}'", name),
-                (None, Some(p)) => format!("duplicate '{}' at {}", name, p),
-                (Some(p), None) => format!("duplicate '{}' at {}", name, p),
-                (Some(p1), Some(p2)) => format!("duplicate '{}' at {} and {}", name, p1, p2),
-            },
-            Error::Resolve { name, position } => {
-                if let Some(position) = position {
-                    format!("unresolved {} at {}", name, position)
-                } else {
-                    format!("unresolved {}", name)
-                }
-            }
-            Error::Interval { name, position } => {
-                if let Some(position) = position {
-                    format!("malformed interval {} at {}", name, position)
-                } else {
-                    format!("malformed interval {}", name)
-                }
-            }
-            Error::Type {
-                expr,
-                typ,
-                expected,
-            } => {
-                let mut s = if !expected.is_empty() {
-                    format!(
-                        "type error: '{}' type is '{}' but expecting '{}'",
-                        expr.to_lang(problem),
-                        typ.to_lang(problem),
-                        expected_types(problem, expected)
-                    )
-                } else {
-                    format!(
-                        "type error: '{}' type is '{}'",
-                        expr.to_lang(problem),
-                        typ.to_lang(problem)
-                    )
-                };
-                if let Some(p) = expr.position() {
-                    s.push_str(&format!(" at {}", p));
-                }
-                s
-            }
-        }
-    }
-}
+// impl ToLang for Error {
+//     fn to_lang(&self, problem: &crate::problem::Problem) -> String {
+//         match self {
+//             Error::File { filename, message } => {
+//                 format!("cannot read file {} {}", filename, message)
+//             }
+//             Error::Parse {
+//                 message,
+//                 token,
+//                 position,
+//                 expected,
+//             } => match position {
+//                 Some(position) => format!(
+//                     "parse error '{}' at {}, expecting: {:?}",
+//                     message, position, expected
+//                 ),
+//                 None => format!(
+//                     "parse error '{}', expecting: {}",
+//                     message,
+//                     expected_tokens(expected)
+//                 ),
+//             },
+//             Error::Duplicate {
+//                 name,
+//                 first,
+//                 second,
+//             } => match (first, second) {
+//                 (None, None) => format!("duplicate '{}'", name),
+//                 (None, Some(p)) => format!("duplicate '{}' at {}", name, p),
+//                 (Some(p), None) => format!("duplicate '{}' at {}", name, p),
+//                 (Some(p1), Some(p2)) => format!("duplicate '{}' at {} and {}", name, p1, p2),
+//             },
+//             Error::Resolve { name, position } => {
+//                 if let Some(position) = position {
+//                     format!("unresolved {} at {}", name, position)
+//                 } else {
+//                     format!("unresolved {}", name)
+//                 }
+//             }
+//             Error::Interval { name, position } => {
+//                 if let Some(position) = position {
+//                     format!("malformed interval {} at {}", name, position)
+//                 } else {
+//                     format!("malformed interval {}", name)
+//                 }
+//             }
+//             Error::Type {
+//                 expr,
+//                 typ,
+//                 expected,
+//             } => {
+//                 let mut s = if !expected.is_empty() {
+//                     format!(
+//                         "type error: '{}' type is '{}' but expecting '{}'",
+//                         expr.to_lang(problem),
+//                         typ.to_lang(problem),
+//                         expected_types(problem, expected)
+//                     )
+//                 } else {
+//                     format!(
+//                         "type error: '{}' type is '{}'",
+//                         expr.to_lang(problem),
+//                         typ.to_lang(problem)
+//                     )
+//                 };
+//                 if let Some(p) = expr.position() {
+//                     s.push_str(&format!(" at {}", p));
+//                 }
+//                 s
+//             }
+//         }
+//     }
+// }
 
 //------------------------- To Entry -------------------------
 
@@ -393,6 +369,40 @@ impl ToEntry for Error {
                     d_stuff::Status::Failure,
                     d_stuff::Text::new(
                         "Interval",
+                        termion::style::Bold.to_string(),
+                        termion::color::Blue.fg_str(),
+                    ),
+                    Some(d_stuff::Text::new(
+                        "ERROR",
+                        termion::style::Reset.to_string(),
+                        termion::color::Red.fg_str(),
+                    )),
+                    messages,
+                )
+            }
+            Error::Bounded { name, position } => {
+                let mut messages = vec![];
+
+                messages.push(Message::new(
+                    Some(d_stuff::Text::new(
+                        "Ubounded Type",
+                        termion::style::Reset.to_string(),
+                        termion::color::Red.fg_str(),
+                    )),
+                    d_stuff::Text::new(
+                        format!("'{}'", name),
+                        termion::style::Reset.to_string(),
+                        termion::color::LightBlue.fg_str(),
+                    ),
+                ));
+                if let Some(position) = position {
+                    messages.push(position.to_message());
+                }
+
+                d_stuff::Entry::new(
+                    d_stuff::Status::Failure,
+                    d_stuff::Text::new(
+                        "Bounded",
                         termion::style::Bold.to_string(),
                         termion::color::Blue.fg_str(),
                     ),

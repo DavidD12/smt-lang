@@ -42,11 +42,15 @@ impl Variable {
     }
 
     pub fn typ(&self) -> Type {
-        self.typ
+        self.typ.clone()
     }
 
     pub fn expr(&self) -> &Option<Expr> {
         &self.expr
+    }
+
+    pub fn clear_expr(&mut self) {
+        self.expr = None;
     }
 
     //---------- Resolve ----------
@@ -62,19 +66,7 @@ impl Variable {
     //---------- Interval ----------
 
     pub fn check_interval(&self, problem: &Problem) -> Result<(), Error> {
-        match self.typ() {
-            Type::Interval(min, max) => {
-                if min > max {
-                    Err(Error::Interval {
-                        name: self.typ().to_lang(problem),
-                        position: self.position.clone(),
-                    })
-                } else {
-                    Ok(())
-                }
-            }
-            _ => Ok(()),
-        }
+        self.typ.check_interval(problem, &self.position)
     }
 
     //---------- Typing ----------
@@ -82,7 +74,7 @@ impl Variable {
     pub fn check_type(&self, problem: &Problem) -> Result<(), Error> {
         if let Some(e) = &self.expr {
             e.check_type(problem)?;
-            check_same_type(self.typ(), e, e.typ(problem))?;
+            check_compatible_type(&self.typ, e, &e.typ(problem))?;
         }
         Ok(())
     }

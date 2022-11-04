@@ -25,7 +25,7 @@ pub Problem: () = Entry* => {
 Entry: () = {
     Include,
     Variable,
-    // Function,
+    Function,
     Constraint,
 };
 
@@ -140,9 +140,24 @@ PreExpr: Expr = {
         let position = Some(Position::new(parser.file(), lookup, l));
         Expr::PreExpr(op, Box::new(e), position)
     },
+    FunCallExpr,
+};
+
+FunCallExpr: Expr = {
+    <i:Identifier> <p:TupleExpr> => {
+        let position = Some(i.position);
+        Expr::UnresolvedFunCall(i.name, p, position)
+    },
     Term,
 };
 
+TupleExpr: Vec<Expr> = "(" <e:Expr> <l:CommaExpr*> ")" => {
+    let mut v = Vec::new();
+    v.push(e);
+    v.extend(l);
+    v
+};
+CommaExpr: Expr = "," <e:Expr> => e;
 
 Term: Expr = {
     <l:@L> <b:Boolean> => {

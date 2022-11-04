@@ -4,7 +4,8 @@ pub mod problem;
 pub mod solution;
 pub mod solve;
 
-use problem::ToEntry;
+pub mod combine;
+pub use combine::*;
 
 #[macro_use]
 extern crate lalrpop_util;
@@ -33,7 +34,8 @@ pub fn load_file(
     match parser::parse_file(problem, filename) {
         Ok(_) => {
             if verbose >= 2 {
-                pretty.add(ok_entry("Parse   "))
+                pretty.add(ok_entry("Parse   "));
+                pretty.print();
             }
         }
         Err(e) => return Err(e),
@@ -42,7 +44,8 @@ pub fn load_file(
     match problem.duplicate() {
         Ok(_) => {
             if verbose >= 2 {
-                pretty.add(ok_entry("Unicity "))
+                pretty.add(ok_entry("Unicity "));
+                pretty.print();
             }
         }
         Err(e) => return Err(e),
@@ -51,7 +54,8 @@ pub fn load_file(
     match problem.resolve() {
         Ok(_) => {
             if verbose >= 2 {
-                pretty.add(ok_entry("Resolve "))
+                pretty.add(ok_entry("Resolve "));
+                pretty.print();
             }
         }
         Err(e) => return Err(e),
@@ -60,7 +64,18 @@ pub fn load_file(
     match problem.check_interval() {
         Ok(_) => {
             if verbose >= 2 {
-                pretty.add(ok_entry("Interval"))
+                pretty.add(ok_entry("Interval"));
+                pretty.print();
+            }
+        }
+        Err(e) => return Err(e),
+    }
+    // Check Bounded
+    match problem.check_bounded() {
+        Ok(_) => {
+            if verbose >= 2 {
+                pretty.add(ok_entry("Bounded "));
+                pretty.print();
             }
         }
         Err(e) => return Err(e),
@@ -69,7 +84,8 @@ pub fn load_file(
     match problem.check_type() {
         Ok(_) => {
             if verbose >= 2 {
-                pretty.add(ok_entry("Type    "))
+                pretty.add(ok_entry("Type    "));
+                pretty.print();
             }
         }
         Err(e) => return Err(e),

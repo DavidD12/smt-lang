@@ -50,7 +50,7 @@ impl Constraint {
 
     pub fn check_type(&self, problem: &Problem) -> Result<(), Error> {
         self.expr.check_type(problem)?;
-        check_type_bool(&self.expr, self.expr.typ(problem))?;
+        check_type_bool(&self.expr, &self.expr.typ(problem))?;
         Ok(())
     }
 }

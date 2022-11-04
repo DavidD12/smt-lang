@@ -1,6 +1,6 @@
 [package]
 name = "smt-lang"
-version = "0.2.3"
+version = "0.3.3"
 edition = "2021"
 authors = ["David Doose <David.Doose@gmail.com>"]
 license = "LGPL-3.0-only"
@@ -26,7 +26,7 @@ line-col = "0.2.1"
 z3 = "0.11.2"
 clap = { version = "4.0.18", features = ["derive"] }
 fraction = "0.12.1"
-d-stu = "0.1.4"
+d-stu = "0.1.5"
 termion = "2.0.1"
 
 [build-dependencies]

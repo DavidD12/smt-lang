@@ -35,30 +35,31 @@ impl Parameter {
     }
 
     pub fn typ(&self) -> Type {
-        self.typ
+        self.typ.clone()
     }
 
     //---------- Resolve ----------
 
-    pub fn resolve(&mut self, entries: &Entries) -> Result<(), Error> {
+    pub fn resolve(&mut self, _: &Entries) -> Result<(), Error> {
         Ok(())
     }
 
     //---------- Interval ----------
 
     pub fn check_interval(&self, problem: &Problem) -> Result<(), Error> {
-        match self.typ() {
-            Type::Interval(min, max) => {
-                if min > max {
-                    Err(Error::Interval {
-                        name: self.typ().to_lang(problem),
-                        position: self.position.clone(),
-                    })
-                } else {
-                    Ok(())
-                }
-            }
-            _ => Ok(()),
+        self.typ.check_interval(problem, &self.position)
+    }
+
+    //---------- Bounded ----------
+
+    pub fn check_bounded(&self, _: &Problem) -> Result<(), Error> {
+        if self.typ.is_bounded() {
+            Ok(())
+        } else {
+            Err(Error::Bounded {
+                name: self.name.clone(),
+                position: self.position.clone(),
+            })
         }
     }
 }

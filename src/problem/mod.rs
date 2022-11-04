@@ -28,7 +28,7 @@ pub trait Id: Clone + Copy + PartialEq + Eq + core::hash::Hash + std::fmt::Debug
 }
 
 pub trait GetFromId<I: Id, T> {
-    fn get(&self, i: I) -> Option<&T>;
+    fn get(&self, id: I) -> Option<&T>;
 }
 
 pub trait FromId<I: Id> {

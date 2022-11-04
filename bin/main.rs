@@ -1,5 +1,4 @@
 use clap::Parser;
-use d_stuff::*;
 use smt_lang::{load_file, problem::*, solve::solve};
 
 /// Simple program to greet a person
@@ -25,12 +24,21 @@ fn main() {
         Ok(_) => {
             if args.verbose >= 2 {
                 pretty.add(problem.to_entry());
+                pretty.print();
             }
             let response = solve(&mut pretty, &problem, args.verbose);
             pretty.add(response.to_entry(&problem));
+            if args.verbose > 0 {
+                pretty.print();
+            } else {
+                println!("{}", response.to_lang(&problem));
+            }
         }
-        Err(e) => pretty.add(e.to_entry(&problem)),
+        Err(e) => {
+            pretty.add(e.to_entry(&problem));
+            if args.verbose > 0 {
+                pretty.print();
+            }
+        }
     }
-
-    pretty.print();
 }

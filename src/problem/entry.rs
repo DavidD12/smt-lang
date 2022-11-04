@@ -2,21 +2,26 @@ use super::*;
 
 //------------------------- Entry Type -------------------------
 
-#[derive(Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Copy, Clone, PartialEq, Eq, Hash, Debug)]
 pub enum EntryType {
     Variable(VariableId),
     Function(FunctionId),
+    Parameter(ParameterId),
 }
 
 //------------------------- Entry -------------------------
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Entry {
     name: String,
     typ: EntryType,
 }
 
 impl Entry {
+    pub fn new(name: String, typ: EntryType) -> Self {
+        Self { name, typ }
+    }
+
     pub fn name(&self) -> &str {
         &self.name
     }
@@ -42,8 +47,17 @@ impl FromId<FunctionId> for Entry {
     }
 }
 
+impl FromId<ParameterId> for Entry {
+    fn from_id(problem: &Problem, id: ParameterId) -> Self {
+        let name = problem.get(id).unwrap().name().into();
+        let typ = EntryType::Parameter(id);
+        Self { name, typ }
+    }
+}
+
 //------------------------- Entries -------------------------
 
+#[derive(Clone, Debug)]
 pub struct Entries(Vec<Entry>);
 
 impl Entries {
@@ -56,7 +70,7 @@ impl Entries {
         entries
     }
 
-    pub fn add(&mut self, entry: Entry) -> Entries {
+    pub fn add(&self, entry: Entry) -> Entries {
         let mut v = self.entries().clone();
         v.push(entry);
         Entries(v)

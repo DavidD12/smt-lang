@@ -25,20 +25,19 @@ xxx@XXX:~$ smt-lang --file problem_file.sl
 ## Problem
 
 ```
-let b: Bool
-let i: Int = j + 1 // single line comment
-let r: Real
-/* multi 
-   lines
-   comment
+/*
+  Simple and Stupid Example
 */
-let bb: Bool = not b 
-let j: Int
-let rr: Real = i / 10
-let k: -10..100 = i
+let b: Bool
+let i: 1..5
+let r: Real = i / g(true, i)
 
-constraint cst1 = r > 2.5 and j <= 5
-constraint cst2 = b => j > 0
+let f(j: 1..10): Bool = j > i
+let g(b: Bool, i: 1..5): Int
+
+// comment
+constraint C1 = f(i + 1)
+constraint C2 = (g(b, i) > i) or f(i) and not f(i+1)
 ```
 
 ## Solve
@@ -49,13 +48,30 @@ xxx@XXX:~$ smt-lang --file example.sl
 
 ## Solution
 ```
-    let b: Bool = true
-    let i: Int = 2
-    let r: Real = 7/2
-    let bb: Bool = false
-    let j: Int = 1
-    let rr: Real = 1/5
-    let k: -10..100 = 2
+let b: Bool = false
+let i: 1..5 = 1
+let r: Real = 1/2
+let f(j: 1..10): Bool = {
+    (1) -> false
+    (2) -> true
+    (3) -> true
+    (4) -> true
+    (5) -> true
+    (6) -> true
+    (7) -> true
+    (8) -> true
+    (9) -> true
+}
+let g(b: Bool, i: 1..5): Int = {
+    (false, 1) -> 2
+    (true, 1) -> 2
+    (false, 2) -> 2
+    (true, 2) -> 2
+    (false, 3) -> 2
+    (true, 3) -> 2
+    (false, 4) -> 2
+    (true, 4) -> 2
+}
 ```
 
 ## Options

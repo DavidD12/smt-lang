@@ -1,11 +1,14 @@
+use std::vec;
+
 use super::*;
 
-#[derive(Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Clone, PartialEq, Eq, Hash)]
 pub enum Type {
     Bool,
     Int,
     Real,
     Interval(isize, isize),
+    Function(Vec<Type>, Box<Type>),
     //
     Undefined,
 }
@@ -17,6 +20,7 @@ impl Type {
             Type::Int => false,
             Type::Real => false,
             Type::Interval(_, _) => true,
+            Type::Function(_, _) => false,
             Type::Undefined => false,
         }
     }
@@ -73,38 +77,89 @@ impl Type {
         }
     }
 
-    pub fn conform_to(&self, other: &Self) -> bool {
+    pub fn is_compatible_with(&self, other: &Self) -> bool {
         match (self, other) {
-            (Type::Bool, Type::Bool) => true,
-            (Type::Int, Type::Int) => true,
-            (Type::Int, Type::Interval(_, _)) => true,
-            (Type::Real, Type::Real) => true,
             (Type::Interval(_, _), Type::Interval(_, _)) => true,
             (Type::Interval(_, _), Type::Int) => true,
-            _ => false,
+            (Type::Int, Type::Interval(_, _)) => true,
+            (x, y) => x.is_subtype_of(y),
         }
     }
 
-    pub fn conform_list(&self) -> Vec<Self> {
+    pub fn is_subtype_of(&self, other: &Self) -> bool {
+        match (self, other) {
+            // TODO: Int :<: Real ??? and Interval :<: Real
+            (Type::Interval(min1, max1), Type::Interval(min2, max2)) => {
+                min1 >= min2 && max1 <= max2
+            }
+            (Type::Interval(_, _), Type::Int) => true,
+            (x, y) => x == y,
+        }
+    }
+
+    // pub fn conform_list(&self) -> Vec<Self> {
+    //     match self {
+    //         Type::Bool => vec![self.clone()],
+    //         Type::Int => vec![self.clone()],
+    //         Type::Real => vec![self.clone()],
+    //         Type::Interval(_, _) => vec![self.clone()],
+    //         Type::Function(_, _) => vec![self.clone()],
+    //         Type::Undefined => vec![],
+    //     }
+    // }
+
+    pub fn check_interval(
+        &self,
+        problem: &Problem,
+        position: &Option<Position>,
+    ) -> Result<(), Error> {
         match self {
-            Type::Bool => vec![Type::Bool],
-            Type::Int => vec![Type::Int],
-            Type::Real => vec![Type::Real],
-            Type::Interval(_, _) => vec![Type::Int],
-            Type::Undefined => vec![],
+            Type::Interval(min, max) => {
+                if min > max {
+                    Err(Error::Interval {
+                        name: self.to_lang(problem),
+                        position: position.clone(),
+                    })
+                } else {
+                    Ok(())
+                }
+            }
+            _ => Ok(()),
+        }
+    }
+
+    pub fn all(&self) -> Vec<Expr> {
+        match self {
+            Type::Bool => vec![Expr::BoolValue(false, None), Expr::BoolValue(true, None)],
+            Type::Interval(min, max) => (*min..*max)
+                .into_iter()
+                .map(|i| Expr::IntValue(i, None))
+                .collect(),
+            _ => vec![],
         }
     }
 }
 //------------------------- To Lang -------------------------
 
 impl ToLang for Type {
-    fn to_lang(&self, _problem: &Problem) -> String {
+    fn to_lang(&self, problem: &Problem) -> String {
         match self {
             Type::Bool => "Bool".into(),
             Type::Int => "Int".into(),
             Type::Real => "Real".into(),
             Type::Interval(min, max) => format!("{}..{}", min, max),
-            Type::Undefined => "Undefined".into(),
+            Type::Function(param, ret) => {
+                let mut s = "(".to_string();
+                if let Some((first, others)) = param.split_first() {
+                    s.push_str(&first.to_lang(problem));
+                    for p in others {
+                        s.push_str(&format!(", {}", p.to_lang(problem)));
+                    }
+                }
+                s.push_str(&format!(") -> {}", ret.to_lang(problem)));
+                s
+            }
+            Type::Undefined => "?".into(),
         }
     }
 }
