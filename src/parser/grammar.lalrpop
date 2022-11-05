@@ -93,10 +93,12 @@ ArgumentNext: Argument = "," <a:Argument> => a;
 
 //------------------------- Variable -------------------------
 
-Variable: () = "let" <i:Identifier> ":" <t:Type> <e:Assign?> => {
-    let position = Some(i.position.clone());
-    let v = Variable::new(i.name, t, e, position);
-    parser.problem.add_variable(v);
+Variable: () = "let" <l:Identifiers> ":" <t:Type> <e:Assign?> => {
+    for i in l {
+        let position = Some(i.position.clone());
+        let v = Variable::new(i.name, t.clone(), e.clone(), position);
+        parser.problem.add_variable(v);
+    }
 };    
 
 //------------------------- Function -------------------------
@@ -271,6 +273,15 @@ CommaOne<T>: Vec<T> = {
         v.push(e);
         v
     }
+};
+
+CommaIdentifier: Identifier = "," <i:Identifier> => i;
+
+Identifiers: Vec<Identifier> = <i:Identifier> <l:CommaIdentifier*> => {
+    let mut v = Vec::new();
+    v.push(i);
+    v.extend(l);
+    v
 };
 
 //========================= Lexer =========================

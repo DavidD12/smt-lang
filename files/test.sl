@@ -9,7 +9,7 @@ struct S {
     meth(b: Bool, i: 1..0, r: Real): Int = a
 }
 
-let s: S
+let s1, s2: S = s1
 
 /*
 constraint C1 = (

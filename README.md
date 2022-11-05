@@ -141,10 +141,7 @@ not <Expression>
 
 ### Comming Soon:
 
-- set
-- array
-- enum
-- struct
-- forall/exists/in expressions
-- minimize/maximize/pareto
+- expressions: ite/forall/exists/in
+- types: enum/set/array/matrix
+- solve: minimize/maximize/pareto/unsat core
   
