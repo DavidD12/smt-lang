@@ -110,17 +110,26 @@ impl Method {
         Ok(())
     }
 
-    pub fn resolve(&mut self, entries: &Entries) -> Result<(), Error> {
-        if let Some(e) = &self.expr {
+    pub fn resolve(&self, problem: &Problem, entries: &Entries) -> Result<Method, Error> {
+        let expr = if let Some(e) = &self.expr {
             let mut entries = entries.clone();
             for p in self.arguments.iter() {
                 let entry = Entry::new(p.name().to_string(), EntryType::Argument(p.id()));
                 entries = entries.add(entry);
             }
-            let resolved = e.resolve(&entries)?;
-            self.expr = Some(resolved);
-        }
-        Ok(())
+            let resolved = e.resolve(problem, &entries)?;
+            Some(resolved)
+        } else {
+            None
+        };
+        Ok(Method {
+            id: self.id,
+            name: self.name.clone(),
+            arguments: self.arguments.clone(),
+            return_type: self.return_type.clone(),
+            expr,
+            position: self.position.clone(),
+        })
     }
 
     //---------- Interval ----------

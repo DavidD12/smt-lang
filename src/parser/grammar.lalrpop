@@ -207,16 +207,16 @@ FunCallExpr: Expr = {
         let position = Some(i.position);
         Expr::UnresolvedFunCall(i.name, p, position)
     },
-    Term,
+    AttributeExpr,
 };
 
-TupleExpr: Vec<Expr> = "(" <e:Expr> <l:CommaExpr*> ")" => {
-    let mut v = Vec::new();
-    v.push(e);
-    v.extend(l);
-    v
+AttributeExpr: Expr = {
+    <e:AttributeExpr> "." <i:Identifier> => {
+        let position = Some(i.position);
+        Expr::UnresolvedAttribute(Box::new(e), i.name, position)
+    },
+    Term,
 };
-CommaExpr: Expr = "," <e:Expr> => e;
 
 Term: Expr = {
     <l:@L> <b:Boolean> => {
@@ -234,6 +234,14 @@ Term: Expr = {
     <x:Identifier> => Expr::Unresolved(x.name, Some(x.position)),
     "(" <Expr> ")",
 };
+
+TupleExpr: Vec<Expr> = "(" <e:Expr> <l:CommaExpr*> ")" => {
+    let mut v = Vec::new();
+    v.push(e);
+    v.extend(l);
+    v
+};
+CommaExpr: Expr = "," <e:Expr> => e;
 
 //------------------------- Operator -------------------------
 

@@ -114,17 +114,26 @@ impl Function {
         Ok(())
     }
 
-    pub fn resolve(&mut self, entries: &Entries) -> Result<(), Error> {
-        if let Some(e) = &self.expr {
+    pub fn resolve(&self, problem: &Problem, entries: &Entries) -> Result<Function, Error> {
+        let expr = if let Some(e) = &self.expr {
             let mut entries = entries.clone();
             for p in self.parameters.iter() {
                 let entry = Entry::new(p.name().to_string(), EntryType::Parameter(p.id()));
                 entries = entries.add(entry);
             }
-            let resolved = e.resolve(&entries)?;
-            self.expr = Some(resolved);
-        }
-        Ok(())
+            let resolved = e.resolve(problem, &entries)?;
+            Some(resolved)
+        } else {
+            None
+        };
+        Ok(Function {
+            id: self.id,
+            name: self.name.clone(),
+            parameters: self.parameters.clone(),
+            return_type: self.return_type.clone(),
+            expr,
+            position: self.position.clone(),
+        })
     }
 
     //---------- Interval ----------

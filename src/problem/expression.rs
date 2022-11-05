@@ -1,6 +1,7 @@
 use super::*;
 use crate::error::Error;
 use crate::parser::Position;
+use clap::Id;
 use fraction::Fraction;
 
 use super::{Named, ToLang, VariableId};
@@ -82,8 +83,12 @@ pub enum Expr {
     Variable(VariableId, Option<Position>),
     Parameter(ParameterId, Option<Position>),
     //
+    SelfExpr(StructureId, Option<Position>),
+    Attribute(Box<Expr>, AttributeId, Option<Position>),
+    //
     Unresolved(String, Option<Position>),
     UnresolvedFunCall(String, Vec<Expr>, Option<Position>),
+    UnresolvedAttribute(Box<Expr>, String, Option<Position>),
 }
 
 impl Expr {
@@ -97,8 +102,11 @@ impl Expr {
             Expr::FunctionCall(_, _, p) => p,
             Expr::Variable(_, p) => p,
             Expr::Parameter(_, p) => p,
+            Expr::SelfExpr(_, p) => p,
+            Expr::Attribute(_, _, p) => p,
             Expr::Unresolved(_, p) => p,
             Expr::UnresolvedFunCall(_, _, p) => p,
+            Expr::UnresolvedAttribute(_, _, p) => p,
         }
     }
 
@@ -116,6 +124,8 @@ impl Expr {
             }
             (Expr::Variable(i1, _), Expr::Variable(i2, _)) => i1 == i2,
             (Expr::Parameter(i1, _), Expr::Parameter(i2, _)) => i1 == i2,
+            (Expr::SelfExpr(i1, _), Expr::SelfExpr(i2, _)) => i1 == i2,
+            (Expr::Attribute(_, i1, _), Expr::Attribute(_, i2, _)) => i1 == i2,
             _ => false,
         }
     }
@@ -124,19 +134,19 @@ impl Expr {
         v1.iter().zip(v2.iter()).all(|(x, y)| x.is_same(y))
     }
 
-    pub fn resolve(&self, entries: &Entries) -> Result<Expr, Error> {
+    pub fn resolve(&self, problem: &Problem, entries: &Entries) -> Result<Expr, Error> {
         match self {
             Expr::BoolValue(_, _) => Ok(self.clone()),
             Expr::IntValue(_, _) => Ok(self.clone()),
             Expr::RealValue(_, _) => Ok(self.clone()),
             //
             Expr::PreExpr(op, kid, position) => {
-                let kid = kid.resolve(entries)?;
+                let kid = kid.resolve(problem, entries)?;
                 Ok(Self::PreExpr(*op, Box::new(kid), position.clone()))
             }
             Expr::BinExpr(left, op, right, position) => {
-                let left = left.resolve(entries)?;
-                let right = right.resolve(entries)?;
+                let left = left.resolve(problem, entries)?;
+                let right = right.resolve(problem, entries)?;
                 Ok(Self::BinExpr(
                     Box::new(left),
                     *op,
@@ -148,13 +158,18 @@ impl Expr {
             Expr::FunctionCall(id, parameters, position) => {
                 let mut v: Vec<Expr> = vec![];
                 for p in parameters.iter() {
-                    v.push(p.resolve(entries)?);
+                    v.push(p.resolve(problem, entries)?);
                 }
                 Ok(Self::FunctionCall(*id, v, position.clone()))
             }
             //
             Expr::Variable(_, _) => Ok(self.clone()),
             Expr::Parameter(_, _) => Ok(self.clone()),
+            Expr::SelfExpr(_, _) => Ok(self.clone()),
+            Expr::Attribute(e, id, pos) => {
+                let e = e.resolve(problem, entries)?;
+                Ok(Expr::Attribute(Box::new(e), *id, pos.clone()))
+            }
             //
             Expr::Unresolved(name, position) => match entries.get(&name) {
                 Some(entry) => match entry.typ() {
@@ -173,7 +188,7 @@ impl Expr {
             Expr::UnresolvedFunCall(name, params, position) => {
                 let mut v: Vec<Expr> = vec![];
                 for p in params.iter() {
-                    v.push(p.resolve(entries)?);
+                    v.push(p.resolve(problem, entries)?);
                 }
                 if let Some(entry) = entries.get(&name) {
                     if let EntryType::Function(id) = entry.typ() {
@@ -183,6 +198,18 @@ impl Expr {
                 Err(Error::Resolve {
                     name: name.clone(),
                     position: position.clone(),
+                })
+            }
+            Expr::UnresolvedAttribute(e, name, pos) => {
+                let e = e.resolve(problem, entries)?;
+                if let Type::Structure(id) = e.typ(problem) {
+                    if let Some(a) = problem.get(id).unwrap().get_attribute_from_name(name) {
+                        return Ok(Expr::Attribute(Box::new(e), a.id(), pos.clone()));
+                    }
+                }
+                Err(Error::Resolve {
+                    name: name.clone(),
+                    position: pos.clone(),
                 })
             }
         }
@@ -245,8 +272,11 @@ impl Expr {
             Expr::FunctionCall(id, _, _) => problem.get(*id).unwrap().return_type(),
             Expr::Variable(id, _) => problem.get(*id).unwrap().typ(),
             Expr::Parameter(id, _) => problem.get(*id).unwrap().typ(),
+            Expr::SelfExpr(id, _) => Type::Structure(*id),
+            Expr::Attribute(_, id, _) => problem.get(*id).unwrap().typ(),
             Expr::Unresolved(_, _) => Type::Undefined,
             Expr::UnresolvedFunCall(_, _, _) => Type::Undefined,
+            Expr::UnresolvedAttribute(_, _, _) => Type::Undefined,
         }
     }
 
@@ -309,8 +339,16 @@ impl Expr {
             }
             Expr::Variable(_, _) => Ok(()),
             Expr::Parameter(_, _) => Ok(()),
+            Expr::Attribute(e, id, _) => {
+                let et = e.typ(problem);
+                let AttributeId(structure_id, _) = id;
+                let at = problem.get(*structure_id).unwrap().typ();
+                check_subtype_type(&at, e, &et)
+            }
+            Expr::SelfExpr(_, _) => Ok(()),
             Expr::Unresolved(_, _) => panic!(),
             Expr::UnresolvedFunCall(_, _, _) => panic!(),
+            Expr::UnresolvedAttribute(_, _, _) => panic!(),
         }
     }
 
@@ -336,8 +374,13 @@ impl Expr {
                 }
                 Expr::Variable(_, _) => self.clone(),
                 Expr::Parameter(_, _) => self.clone(),
+                Expr::SelfExpr(_, _) => self.clone(),
+                Expr::Attribute(e, id, pos) => {
+                    Expr::Attribute(Box::new(e.substitute(old, expr)), *id, pos.clone())
+                }
                 Expr::Unresolved(_, _) => self.clone(),
                 Expr::UnresolvedFunCall(_, _, _) => panic!(),
+                Expr::UnresolvedAttribute(_, _, _) => panic!(),
             }
         }
     }
@@ -444,6 +487,14 @@ impl ToLang for Expr {
             }
             Expr::Variable(id, _) => problem.get(*id).unwrap().name().into(),
             Expr::Parameter(id, _) => problem.get(*id).unwrap().name().into(),
+            Expr::SelfExpr(_, _) => "self".to_string(),
+            Expr::Attribute(e, id, _) => {
+                format!(
+                    "({}.{})",
+                    e.to_lang(problem),
+                    problem.get(*id).unwrap().name()
+                )
+            }
             Expr::Unresolved(name, _) => format!("{}?", name),
             Expr::UnresolvedFunCall(name, params, _) => {
                 let mut s = format!("{}?(", name);
@@ -456,6 +507,7 @@ impl ToLang for Expr {
                 s.push_str(")");
                 s
             }
+            Expr::UnresolvedAttribute(e, name, _) => format!("({}.{})?", e.to_lang(problem), name),
         }
     }
 }

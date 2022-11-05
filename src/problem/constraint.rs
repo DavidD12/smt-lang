@@ -40,10 +40,14 @@ impl Constraint {
 
     //---------- Resolve ----------
 
-    pub fn resolve(&mut self, entries: &Entries) -> Result<(), Error> {
-        let resolved = self.expr.resolve(entries)?;
-        self.expr = resolved;
-        Ok(())
+    pub fn resolve(&self, problem: &Problem, entries: &Entries) -> Result<Constraint, Error> {
+        let expr = self.expr.resolve(problem, entries)?;
+        Ok(Constraint {
+            id: self.id,
+            name: self.name.clone(),
+            expr,
+            position: self.position.clone(),
+        })
     }
 
     //---------- Typing ----------

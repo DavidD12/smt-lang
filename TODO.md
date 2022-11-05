@@ -1,0 +1,4 @@
+- homogeneiser les noms des expressions: Expr pas Expr
+- rename typ() into type_()
+- changer le resolve en supprimer les items tels que les function, les variables, etc. Ne mettre que les declaration locales (paramètres et arguments).
+- add a paramter of the resolve error (type: identifier, attribute, method, ...)

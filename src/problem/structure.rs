@@ -63,6 +63,15 @@ impl Structure {
         &self.attributes
     }
 
+    pub fn get_attribute_from_name(&self, name: &str) -> Option<&Attribute> {
+        for a in self.attributes.iter() {
+            if a.name() == name {
+                return Some(a);
+            }
+        }
+        None
+    }
+
     //---------- Method ----------
 
     pub fn add_method(&mut self, mut method: Method) -> MethodId {
@@ -83,6 +92,12 @@ impl Structure {
 
     pub fn methods(&self) -> &Vec<Method> {
         &self.methods
+    }
+
+    //---------- Type ----------
+
+    pub fn typ(&self) -> Type {
+        Type::Structure(self.id)
     }
 
     //---------- Entry ----------
@@ -122,14 +137,27 @@ impl Structure {
         Ok(())
     }
 
-    pub fn resolve(&mut self, entries: &Entries) -> Result<(), Error> {
-        for x in self.attributes.iter_mut() {
-            x.resolve(&entries)?;
+    pub fn resolve(&self, problem: &Problem, entries: &Entries) -> Result<Structure, Error> {
+        // Attribute
+        let mut attributes = Vec::new();
+        for x in self.attributes.iter() {
+            let a = x.resolve(problem, &entries)?;
+            attributes.push(a);
         }
-        for x in self.methods.iter_mut() {
-            x.resolve(&entries)?;
+        // Methods
+        let mut methods = Vec::new();
+        for x in self.methods.iter() {
+            let m = x.resolve(problem, &entries)?;
+            methods.push(m);
         }
-        Ok(())
+        //
+        Ok(Structure {
+            id: self.id,
+            name: self.name.clone(),
+            attributes,
+            methods,
+            position: self.position.clone(),
+        })
     }
 }
 
@@ -169,5 +197,13 @@ impl ToLang for Structure {
         //
         s.push_str("}\n");
         s
+    }
+}
+
+//------------------------- Get From Id -------------------------
+
+impl GetFromId<AttributeId, Attribute> for Structure {
+    fn get(&self, id: AttributeId) -> Option<&Attribute> {
+        self.get_attribute(id)
     }
 }

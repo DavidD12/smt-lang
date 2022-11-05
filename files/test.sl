@@ -1,7 +1,8 @@
 let a: 1..2
 
 struct S {
-    a: Int = a
+    // me: S = self
+    a: Int = s1.other.a
     i: 1..10
 //    b: Bool = self.a > a + i
     m(b: Bool, s: S): S

@@ -149,18 +149,35 @@ impl Problem {
 
     pub fn resolve(&mut self) -> Result<(), Error> {
         let entries = self.entries();
-        for x in self.structures.iter_mut() {
-            x.resolve(&entries)?;
+        // Structure
+        let mut structures = Vec::new();
+        for x in self.structures.iter() {
+            let s = x.resolve(self, &entries)?;
+            structures.push(s);
         }
-        for x in self.variables.iter_mut() {
-            x.resolve(&entries)?;
+        self.structures = structures;
+        // Variables
+        let mut variables = Vec::new();
+        for x in self.variables.iter() {
+            let v = x.resolve(self, &entries)?;
+            variables.push(v);
         }
-        for x in self.functions.iter_mut() {
-            x.resolve(&entries)?;
+        self.variables = variables;
+        // Function
+        let mut functions = Vec::new();
+        for x in self.functions.iter() {
+            let f = x.resolve(self, &entries)?;
+            functions.push(f);
         }
-        for x in self.constraints.iter_mut() {
-            x.resolve(&entries)?;
+        self.functions = functions;
+        // Constraint
+        let mut constraints = Vec::new();
+        for x in self.constraints.iter() {
+            let c = x.resolve(self, &entries)?;
+            constraints.push(c);
         }
+        self.constraints = constraints;
+        //
         Ok(())
     }
 
@@ -248,6 +265,16 @@ impl std::fmt::Display for Problem {
 impl GetFromId<StructureId, Structure> for Problem {
     fn get(&self, id: StructureId) -> Option<&Structure> {
         self.get_structure(id)
+    }
+}
+impl GetFromId<AttributeId, Attribute> for Problem {
+    fn get(&self, id: AttributeId) -> Option<&Attribute> {
+        let AttributeId(structure_id, _) = id;
+        if let Some(structure) = self.get(structure_id) {
+            structure.get(id)
+        } else {
+            None
+        }
     }
 }
 

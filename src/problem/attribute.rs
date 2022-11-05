@@ -60,12 +60,20 @@ impl Attribute {
         Ok(())
     }
 
-    pub fn resolve(&mut self, entries: &Entries) -> Result<(), Error> {
-        if let Some(e) = &self.expr {
-            let resolved = e.resolve(entries)?;
-            self.expr = Some(resolved);
-        }
-        Ok(())
+    pub fn resolve(&self, problem: &Problem, entries: &Entries) -> Result<Attribute, Error> {
+        let expr = if let Some(e) = &self.expr {
+            let resolved = e.resolve(problem, entries)?;
+            Some(resolved)
+        } else {
+            None
+        };
+        Ok(Attribute {
+            id: self.id,
+            name: self.name.clone(),
+            typ: self.typ.clone(),
+            expr,
+            position: self.position.clone(),
+        })
     }
 
     //---------- Interval ----------
