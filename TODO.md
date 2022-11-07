@@ -1,4 +1,10 @@
 - homogeneiser les noms des expressions: Expr pas Expr
 - rename typ() into type_()
 - changer le resolve en supprimer les items tels que les function, les variables, etc. Ne mettre que les declaration locales (paramètres et arguments).
-- add a paramter of the resolve error (type: identifier, attribute, method, ...)
+- check parameters/arguments number function/method
+- supprimer Argument et ajouter un <T> dans paramètre (Function/Method) idem dans ParameterId
+- add methore dans Id to get superid
+- minimize/maximize unbounded ? => NO !
+- add check interval into expr with tth type conversion
+- mutualiser les definition avec un trait with Expr et redefinition les check et resolve
+- mutualiser les eq/ne/lt/.. commen dans Many

@@ -110,9 +110,14 @@ impl Method {
         Ok(())
     }
 
-    pub fn resolve(&self, problem: &Problem, entries: &Entries) -> Result<Method, Error> {
+    pub fn resolve_expr(&self, problem: &Problem, entries: &Entries) -> Result<Method, Error> {
         let expr = if let Some(e) = &self.expr {
             let mut entries = entries.clone();
+            let MethodId(structure_id, _) = self.id();
+            entries = entries.add(Entry::new(
+                "self".to_string(),
+                EntryType::Self_(structure_id),
+            ));
             for p in self.arguments.iter() {
                 let entry = Entry::new(p.name().to_string(), EntryType::Argument(p.id()));
                 entries = entries.add(entry);
@@ -138,6 +143,15 @@ impl Method {
         self.return_type.check_interval(problem, &self.position)?;
         for p in self.arguments.iter() {
             p.check_interval(problem)?;
+        }
+        Ok(())
+    }
+
+    //---------- Parameter Size ----------
+
+    pub fn check_parameter_size(&self, problem: &Problem) -> Result<(), Error> {
+        if let Some(expr) = &self.expr {
+            expr.check_parameter_size(problem)?;
         }
         Ok(())
     }

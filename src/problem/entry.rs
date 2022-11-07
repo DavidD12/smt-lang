@@ -4,9 +4,11 @@ use super::*;
 
 #[derive(Copy, Clone, PartialEq, Eq, Hash, Debug)]
 pub enum EntryType {
+    Instance(InstanceId),
     Variable(VariableId),
-    Function(FunctionId),
+    // Function(FunctionId),
     Parameter(ParameterId),
+    Self_(StructureId),
     Argument(ArgumentId),
 }
 
@@ -32,6 +34,14 @@ impl Entry {
     }
 }
 
+impl FromId<InstanceId> for Entry {
+    fn from_id(problem: &Problem, id: InstanceId) -> Self {
+        let name = problem.get(id).unwrap().name().into();
+        let typ = EntryType::Instance(id);
+        Self { name, typ }
+    }
+}
+
 impl FromId<VariableId> for Entry {
     fn from_id(problem: &Problem, id: VariableId) -> Self {
         let name = problem.get(id).unwrap().name().into();
@@ -40,13 +50,13 @@ impl FromId<VariableId> for Entry {
     }
 }
 
-impl FromId<FunctionId> for Entry {
-    fn from_id(problem: &Problem, id: FunctionId) -> Self {
-        let name = problem.get(id).unwrap().name().into();
-        let typ = EntryType::Function(id);
-        Self { name, typ }
-    }
-}
+// impl FromId<FunctionId> for Entry {
+//     fn from_id(problem: &Problem, id: FunctionId) -> Self {
+//         let name = problem.get(id).unwrap().name().into();
+//         let typ = EntryType::Function(id);
+//         Self { name, typ }
+//     }
+// }
 
 impl FromId<ParameterId> for Entry {
     fn from_id(problem: &Problem, id: ParameterId) -> Self {

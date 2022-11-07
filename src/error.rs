@@ -21,13 +21,23 @@ pub enum Error {
         first: Option<Position>,
         second: Option<Position>,
     },
+    Instance {
+        name: String,
+        position: Option<Position>,
+    },
     Resolve {
+        category: String,
         name: String,
         position: Option<Position>,
     },
     Interval {
         name: String,
         position: Option<Position>,
+    },
+    Parameter {
+        expr: Expr,
+        size: usize,
+        expected: usize,
     },
     Bounded {
         name: String,
@@ -312,12 +322,50 @@ impl ToEntry for Error {
                     messages,
                 )
             }
-            Error::Resolve { name, position } => {
+            Error::Instance { name, position } => {
                 let mut messages = vec![];
 
                 messages.push(Message::new(
                     Some(d_stuff::Text::new(
-                        "Undefined Identifier",
+                        "Undefined Structure",
+                        termion::style::Reset.to_string(),
+                        termion::color::Red.fg_str(),
+                    )),
+                    d_stuff::Text::new(
+                        format!("'{}'", name),
+                        termion::style::Reset.to_string(),
+                        termion::color::LightBlue.fg_str(),
+                    ),
+                ));
+                if let Some(position) = position {
+                    messages.push(position.to_message());
+                }
+
+                d_stuff::Entry::new(
+                    d_stuff::Status::Failure,
+                    d_stuff::Text::new(
+                        "Instance",
+                        termion::style::Bold.to_string(),
+                        termion::color::Blue.fg_str(),
+                    ),
+                    Some(d_stuff::Text::new(
+                        "ERROR",
+                        termion::style::Reset.to_string(),
+                        termion::color::Red.fg_str(),
+                    )),
+                    messages,
+                )
+            }
+            Error::Resolve {
+                category,
+                name,
+                position,
+            } => {
+                let mut messages = vec![];
+
+                messages.push(Message::new(
+                    Some(d_stuff::Text::new(
+                        format!("Undefined {}", category),
                         termion::style::Reset.to_string(),
                         termion::color::Red.fg_str(),
                     )),
@@ -369,6 +417,68 @@ impl ToEntry for Error {
                     d_stuff::Status::Failure,
                     d_stuff::Text::new(
                         "Interval",
+                        termion::style::Bold.to_string(),
+                        termion::color::Blue.fg_str(),
+                    ),
+                    Some(d_stuff::Text::new(
+                        "ERROR",
+                        termion::style::Reset.to_string(),
+                        termion::color::Red.fg_str(),
+                    )),
+                    messages,
+                )
+            }
+            Error::Parameter {
+                expr,
+                size,
+                expected,
+            } => {
+                let mut messages = vec![];
+
+                messages.push(Message::new(
+                    Some(d_stuff::Text::new(
+                        "Parameter size",
+                        termion::style::Reset.to_string(),
+                        termion::color::Red.fg_str(),
+                    )),
+                    d_stuff::Text::new(
+                        format!("'{}'", expr.to_lang(problem)),
+                        termion::style::Reset.to_string(),
+                        termion::color::LightBlue.fg_str(),
+                    ),
+                ));
+                if let Some(position) = expr.position() {
+                    messages.push(position.to_message());
+                }
+                messages.push(Message::new(
+                    Some(d_stuff::Text::new(
+                        "size",
+                        termion::style::Reset.to_string(),
+                        termion::color::White.fg_str(),
+                    )),
+                    d_stuff::Text::new(
+                        size.to_string(),
+                        termion::style::Reset.to_string(),
+                        termion::color::LightBlue.fg_str(),
+                    ),
+                ));
+                messages.push(Message::new(
+                    Some(d_stuff::Text::new(
+                        "expected",
+                        termion::style::Reset.to_string(),
+                        termion::color::White.fg_str(),
+                    )),
+                    d_stuff::Text::new(
+                        expected.to_string(),
+                        termion::style::Reset.to_string(),
+                        termion::color::LightBlue.fg_str(),
+                    ),
+                ));
+
+                d_stuff::Entry::new(
+                    d_stuff::Status::Failure,
+                    d_stuff::Text::new(
+                        "Parameter",
                         termion::style::Bold.to_string(),
                         termion::color::Blue.fg_str(),
                     ),

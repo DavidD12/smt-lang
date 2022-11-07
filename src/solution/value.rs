@@ -1,8 +1,9 @@
-use crate::problem::Expr;
+use crate::problem::{Expr, GetFromId, InstanceId, Named, ToLang};
 use crate::solve::Smt;
 use fraction::Fraction;
 
 pub enum Value {
+    Instance(InstanceId),
     Bool(bool),
     Integer(isize),
     Real(Fraction),
@@ -38,18 +39,28 @@ impl Value {
                 Fraction::new_generic(fraction::Sign::Minus, -num, den).unwrap()
             };
             Value::Real(value)
+        } else if t.is_structure() {
+            let value = model
+                .eval(&smt.to_datatype(expr), true)
+                .unwrap()
+                .to_string();
+            let instance = smt.problem().find_instance(&value).unwrap();
+            Value::Instance(instance.id())
         } else {
             panic!()
         }
     }
 }
 
-impl std::fmt::Display for Value {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+//------------------------- To Lang -------------------------
+
+impl ToLang for Value {
+    fn to_lang(&self, problem: &crate::problem::Problem) -> String {
         match self {
-            Value::Bool(value) => write!(f, "{}", value),
-            Value::Integer(value) => write!(f, "{}", value),
-            Value::Real(value) => write!(f, "{}", value),
+            Value::Instance(id) => problem.get(*id).unwrap().name().to_string(),
+            Value::Bool(value) => value.to_string(),
+            Value::Integer(value) => value.to_string(),
+            Value::Real(value) => value.to_string(),
         }
     }
 }

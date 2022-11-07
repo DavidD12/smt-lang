@@ -1,7 +1,6 @@
 use super::*;
 use crate::error::Error;
 use crate::parser::Position;
-use clap::Id;
 use fraction::Fraction;
 
 use super::{Named, ToLang, VariableId};
@@ -83,12 +82,15 @@ pub enum Expr {
     Variable(VariableId, Option<Position>),
     Parameter(ParameterId, Option<Position>),
     //
+    Instance(InstanceId, Option<Position>),
     SelfExpr(StructureId, Option<Position>),
     Attribute(Box<Expr>, AttributeId, Option<Position>),
+    MethodCall(Box<Expr>, MethodId, Vec<Expr>, Option<Position>),
     //
     Unresolved(String, Option<Position>),
     UnresolvedFunCall(String, Vec<Expr>, Option<Position>),
     UnresolvedAttribute(Box<Expr>, String, Option<Position>),
+    UnresolvedMethCall(Box<Expr>, String, Vec<Expr>, Option<Position>),
 }
 
 impl Expr {
@@ -102,11 +104,14 @@ impl Expr {
             Expr::FunctionCall(_, _, p) => p,
             Expr::Variable(_, p) => p,
             Expr::Parameter(_, p) => p,
+            Expr::Instance(_, p) => p,
             Expr::SelfExpr(_, p) => p,
             Expr::Attribute(_, _, p) => p,
+            Expr::MethodCall(_, _, _, p) => p,
             Expr::Unresolved(_, p) => p,
             Expr::UnresolvedFunCall(_, _, p) => p,
             Expr::UnresolvedAttribute(_, _, p) => p,
+            Expr::UnresolvedMethCall(_, _, _, p) => p,
         }
     }
 
@@ -124,8 +129,12 @@ impl Expr {
             }
             (Expr::Variable(i1, _), Expr::Variable(i2, _)) => i1 == i2,
             (Expr::Parameter(i1, _), Expr::Parameter(i2, _)) => i1 == i2,
+            (Expr::Instance(i1, _), Expr::Instance(i2, _)) => i1 == i2,
             (Expr::SelfExpr(i1, _), Expr::SelfExpr(i2, _)) => i1 == i2,
             (Expr::Attribute(_, i1, _), Expr::Attribute(_, i2, _)) => i1 == i2,
+            (Expr::MethodCall(e1, i1, a1, _), Expr::MethodCall(e2, i2, a2, _)) => {
+                e1.is_same(e2) && i1 == i2 && Self::all_same(a1, a2)
+            }
             _ => false,
         }
     }
@@ -165,22 +174,36 @@ impl Expr {
             //
             Expr::Variable(_, _) => Ok(self.clone()),
             Expr::Parameter(_, _) => Ok(self.clone()),
+            Expr::Instance(_, _) => Ok(self.clone()),
             Expr::SelfExpr(_, _) => Ok(self.clone()),
             Expr::Attribute(e, id, pos) => {
                 let e = e.resolve(problem, entries)?;
                 Ok(Expr::Attribute(Box::new(e), *id, pos.clone()))
+            }
+            Expr::MethodCall(e, id, args, pos) => {
+                let e = e.resolve(problem, entries)?;
+                let mut v: Vec<Expr> = vec![];
+                for p in args.iter() {
+                    v.push(p.resolve(problem, entries)?);
+                }
+
+                Ok(Expr::MethodCall(Box::new(e), *id, v, pos.clone()))
             }
             //
             Expr::Unresolved(name, position) => match entries.get(&name) {
                 Some(entry) => match entry.typ() {
                     EntryType::Variable(id) => Ok(Self::Variable(id, position.clone())),
                     EntryType::Parameter(id) => Ok(Self::Parameter(id, position.clone())),
+                    EntryType::Instance(id) => Ok(Expr::Instance(id, position.clone())),
+                    EntryType::Self_(id) => Ok(Expr::SelfExpr(id, position.clone())),
                     _ => Err(Error::Resolve {
+                        category: "identifier".to_string(),
                         name: name.clone(),
                         position: position.clone(),
                     }),
                 },
                 None => Err(Error::Resolve {
+                    category: "identifier".to_string(),
                     name: name.clone(),
                     position: position.clone(),
                 }),
@@ -190,12 +213,11 @@ impl Expr {
                 for p in params.iter() {
                     v.push(p.resolve(problem, entries)?);
                 }
-                if let Some(entry) = entries.get(&name) {
-                    if let EntryType::Function(id) = entry.typ() {
-                        return Ok(Expr::FunctionCall(id, v, position.clone()));
-                    }
+                if let Some(function) = problem.find_function(name) {
+                    return Ok(Expr::FunctionCall(function.id(), v, position.clone()));
                 }
                 Err(Error::Resolve {
+                    category: "function".to_string(),
                     name: name.clone(),
                     position: position.clone(),
                 })
@@ -203,11 +225,29 @@ impl Expr {
             Expr::UnresolvedAttribute(e, name, pos) => {
                 let e = e.resolve(problem, entries)?;
                 if let Type::Structure(id) = e.typ(problem) {
-                    if let Some(a) = problem.get(id).unwrap().get_attribute_from_name(name) {
+                    if let Some(a) = problem.get(id).unwrap().find_attribute(name) {
                         return Ok(Expr::Attribute(Box::new(e), a.id(), pos.clone()));
                     }
                 }
                 Err(Error::Resolve {
+                    category: format!("attibute for type '{}'", e.typ(problem).to_lang(problem)),
+                    name: name.clone(),
+                    position: pos.clone(),
+                })
+            }
+            Expr::UnresolvedMethCall(e, name, args, pos) => {
+                let e = e.resolve(problem, entries)?;
+                let mut v: Vec<Expr> = vec![];
+                for p in args.iter() {
+                    v.push(p.resolve(problem, entries)?);
+                }
+                if let Type::Structure(id) = e.typ(problem) {
+                    if let Some(m) = problem.get(id).unwrap().find_method(name) {
+                        return Ok(Expr::MethodCall(Box::new(e), m.id(), v, pos.clone()));
+                    }
+                }
+                Err(Error::Resolve {
+                    category: format!("method for type '{}'", e.typ(problem).to_lang(problem)),
                     name: name.clone(),
                     position: pos.clone(),
                 })
@@ -270,13 +310,16 @@ impl Expr {
                 BinOp::Div => Type::Real,
             },
             Expr::FunctionCall(id, _, _) => problem.get(*id).unwrap().return_type(),
+            Expr::Instance(id, _) => problem.get(*id).unwrap().typ(),
             Expr::Variable(id, _) => problem.get(*id).unwrap().typ(),
             Expr::Parameter(id, _) => problem.get(*id).unwrap().typ(),
             Expr::SelfExpr(id, _) => Type::Structure(*id),
             Expr::Attribute(_, id, _) => problem.get(*id).unwrap().typ(),
+            Expr::MethodCall(_, id, _, _) => problem.get(*id).unwrap().return_type(),
             Expr::Unresolved(_, _) => Type::Undefined,
             Expr::UnresolvedFunCall(_, _, _) => Type::Undefined,
             Expr::UnresolvedAttribute(_, _, _) => Type::Undefined,
+            Expr::UnresolvedMethCall(_, _, _, _) => Type::Undefined,
         }
     }
 
@@ -337,18 +380,86 @@ impl Expr {
                 }
                 Ok(())
             }
+            Expr::Instance(_, _) => Ok(()),
             Expr::Variable(_, _) => Ok(()),
             Expr::Parameter(_, _) => Ok(()),
+            Expr::SelfExpr(_, _) => Ok(()),
             Expr::Attribute(e, id, _) => {
                 let et = e.typ(problem);
                 let AttributeId(structure_id, _) = id;
-                let at = problem.get(*structure_id).unwrap().typ();
-                check_subtype_type(&at, e, &et)
+                let st = problem.get(*structure_id).unwrap().typ();
+                check_subtype_type(&st, e, &et)
             }
-            Expr::SelfExpr(_, _) => Ok(()),
+            Expr::MethodCall(e, id, args, _) => {
+                let et = e.typ(problem);
+                let MethodId(structure_id, _) = id;
+                let st = problem.get(*structure_id).unwrap().typ();
+                let meth = problem.get(*id).unwrap();
+                check_subtype_type(&st, e, &et)?;
+                for (p, e) in meth.arguments().iter().zip(args.iter()) {
+                    check_subtype_type(&p.typ(), e, &e.typ(problem))?;
+                }
+                Ok(())
+            }
             Expr::Unresolved(_, _) => panic!(),
             Expr::UnresolvedFunCall(_, _, _) => panic!(),
             Expr::UnresolvedAttribute(_, _, _) => panic!(),
+            Expr::UnresolvedMethCall(_, _, _, _) => panic!(),
+        }
+    }
+
+    //---------- Parameter Size ----------
+
+    pub fn check_parameter_size(&self, problem: &Problem) -> Result<(), Error> {
+        match self {
+            Expr::BoolValue(_, _) => Ok(()),
+            Expr::IntValue(_, _) => Ok(()),
+            Expr::RealValue(_, _) => Ok(()),
+            Expr::PreExpr(_, e, _) => e.check_type(problem),
+            Expr::BinExpr(l, _, r, _) => {
+                l.check_parameter_size(problem)?;
+                r.check_parameter_size(problem)
+            }
+            Expr::FunctionCall(id, v, _) => {
+                for x in v.iter() {
+                    x.check_parameter_size(problem)?;
+                }
+                let fun = problem.get(*id).unwrap();
+                if fun.parameters().len() == v.len() {
+                    Ok(())
+                } else {
+                    Err(Error::Parameter {
+                        expr: self.clone(),
+                        size: v.len(),
+                        expected: fun.parameters().len(),
+                    })
+                }
+            }
+            Expr::Instance(_, _) => Ok(()),
+            Expr::Variable(_, _) => Ok(()),
+            Expr::Parameter(_, _) => Ok(()),
+            Expr::SelfExpr(_, _) => Ok(()),
+            Expr::Attribute(e, _, _) => e.check_parameter_size(problem),
+            Expr::MethodCall(e, id, v, _) => {
+                e.check_parameter_size(problem)?;
+                for x in v.iter() {
+                    x.check_parameter_size(problem)?;
+                }
+                let meth = problem.get(*id).unwrap();
+                if meth.arguments().len() == v.len() {
+                    Ok(())
+                } else {
+                    Err(Error::Parameter {
+                        expr: self.clone(),
+                        size: v.len(),
+                        expected: meth.arguments().len(),
+                    })
+                }
+            }
+            Expr::Unresolved(_, _) => panic!(),
+            Expr::UnresolvedFunCall(_, _, _) => panic!(),
+            Expr::UnresolvedAttribute(_, _, _) => panic!(),
+            Expr::UnresolvedMethCall(_, _, _, _) => panic!(),
         }
     }
 
@@ -372,15 +483,22 @@ impl Expr {
                     let params = params.iter().map(|p| p.substitute(old, expr)).collect();
                     Expr::FunctionCall(*id, params, pos.clone())
                 }
+                Expr::Instance(_, _) => self.clone(),
                 Expr::Variable(_, _) => self.clone(),
                 Expr::Parameter(_, _) => self.clone(),
                 Expr::SelfExpr(_, _) => self.clone(),
                 Expr::Attribute(e, id, pos) => {
                     Expr::Attribute(Box::new(e.substitute(old, expr)), *id, pos.clone())
                 }
+                Expr::MethodCall(e, id, args, pos) => {
+                    let e = e.substitute(old, expr);
+                    let args = args.iter().map(|a| a.substitute(old, expr)).collect();
+                    Expr::MethodCall(Box::new(e), *id, args, pos.clone())
+                }
                 Expr::Unresolved(_, _) => self.clone(),
                 Expr::UnresolvedFunCall(_, _, _) => panic!(),
                 Expr::UnresolvedAttribute(_, _, _) => panic!(),
+                Expr::UnresolvedMethCall(_, _, _, _) => panic!(),
             }
         }
     }
@@ -446,18 +564,6 @@ pub fn check_subtype_type(left_type: &Type, right: &Expr, right_type: &Type) -> 
     }
 }
 
-// pub fn check_eq_type(left_type: &Type, right: &Expr, right_type: &Type) -> Result<(), Error> {
-//     if right_type == left_type {
-//         Ok(())
-//     } else {
-//         Err(Error::Type {
-//             expr: right.clone(),
-//             typ: right_type.clone(),
-//             expected: vec![left_type.clone()],
-//         })
-//     }
-// }
-
 //------------------------- To Lang -------------------------
 
 impl ToLang for Expr {
@@ -485,6 +591,7 @@ impl ToLang for Expr {
                 s.push_str(")");
                 s
             }
+            Expr::Instance(id, _) => problem.get(*id).unwrap().name().into(),
             Expr::Variable(id, _) => problem.get(*id).unwrap().name().into(),
             Expr::Parameter(id, _) => problem.get(*id).unwrap().name().into(),
             Expr::SelfExpr(_, _) => "self".to_string(),
@@ -494,6 +601,18 @@ impl ToLang for Expr {
                     e.to_lang(problem),
                     problem.get(*id).unwrap().name()
                 )
+            }
+            Expr::MethodCall(e, id, args, _) => {
+                let name = problem.get(*id).unwrap().name();
+                let mut s = format!("{}.{}(", e.to_lang(problem), name,);
+                if let Some((first, others)) = args.split_first() {
+                    s.push_str(&first.to_lang(problem));
+                    for p in others.iter() {
+                        s.push_str(&format!(", {}", p.to_lang(problem)));
+                    }
+                }
+                s.push_str(")");
+                s
             }
             Expr::Unresolved(name, _) => format!("{}?", name),
             Expr::UnresolvedFunCall(name, params, _) => {
@@ -508,6 +627,17 @@ impl ToLang for Expr {
                 s
             }
             Expr::UnresolvedAttribute(e, name, _) => format!("({}.{})?", e.to_lang(problem), name),
+            Expr::UnresolvedMethCall(e, name, args, _) => {
+                let mut s = format!("{}.{}(", e.to_lang(problem), name,);
+                if let Some((first, others)) = args.split_first() {
+                    s.push_str(&first.to_lang(problem));
+                    for p in others.iter() {
+                        s.push_str(&format!(", {}", p.to_lang(problem)));
+                    }
+                }
+                s.push_str(")");
+                s
+            }
         }
     }
 }

@@ -114,7 +114,7 @@ impl Function {
         Ok(())
     }
 
-    pub fn resolve(&self, problem: &Problem, entries: &Entries) -> Result<Function, Error> {
+    pub fn resolve_expr(&self, problem: &Problem, entries: &Entries) -> Result<Function, Error> {
         let expr = if let Some(e) = &self.expr {
             let mut entries = entries.clone();
             for p in self.parameters.iter() {
@@ -142,6 +142,15 @@ impl Function {
         self.return_type.check_interval(problem, &self.position)?;
         for p in self.parameters.iter() {
             p.check_interval(problem)?;
+        }
+        Ok(())
+    }
+
+    //---------- Parameter Size ----------
+
+    pub fn check_parameter_size(&self, problem: &Problem) -> Result<(), Error> {
+        if let Some(expr) = &self.expr {
+            expr.check_parameter_size(problem)?;
         }
         Ok(())
     }

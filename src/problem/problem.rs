@@ -3,6 +3,7 @@ use super::*;
 #[derive(Clone)]
 pub struct Problem {
     structures: Vec<Structure>,
+    instances: Vec<Instance>,
     variables: Vec<Variable>,
     functions: Vec<Function>,
     constraints: Vec<Constraint>,
@@ -12,6 +13,7 @@ impl Problem {
     pub fn new() -> Self {
         Self {
             structures: vec![],
+            instances: vec![],
             variables: vec![],
             functions: vec![],
             constraints: vec![],
@@ -36,6 +38,40 @@ impl Problem {
         &self.structures
     }
 
+    pub fn find_structure(&self, name: &str) -> Option<&Structure> {
+        self.structures.iter().find(|x| x.name() == name)
+    }
+
+    pub fn structure_instances(&self, id: StructureId) -> Vec<InstanceId> {
+        self.instances
+            .iter()
+            .filter(|i| i.structure().resolved() == id)
+            .map(|i| i.id())
+            .collect()
+    }
+
+    //---------- Instance ----------
+
+    pub fn add_instance(&mut self, mut instance: Instance) -> InstanceId {
+        let id = InstanceId(self.instances.len());
+        instance.set_id(id);
+        self.instances.push(instance);
+        id
+    }
+
+    pub fn get_instance(&self, id: InstanceId) -> Option<&Instance> {
+        let InstanceId(n) = id;
+        self.instances.get(n)
+    }
+
+    pub fn instances(&self) -> &Vec<Instance> {
+        &self.instances
+    }
+
+    pub fn find_instance(&self, name: &str) -> Option<&Instance> {
+        self.instances.iter().find(|x| x.name() == name)
+    }
+
     //---------- Variable ----------
 
     pub fn add_variable(&mut self, mut variable: Variable) -> VariableId {
@@ -54,6 +90,10 @@ impl Problem {
         &self.variables
     }
 
+    pub fn find_variable(&self, name: &str) -> Option<&Variable> {
+        self.variables.iter().find(|x| x.name() == name)
+    }
+
     //---------- Function ----------
 
     pub fn add_function(&mut self, mut function: Function) -> FunctionId {
@@ -70,6 +110,10 @@ impl Problem {
 
     pub fn functions(&self) -> &Vec<Function> {
         &self.functions
+    }
+
+    pub fn find_function(&self, name: &str) -> Option<&Function> {
+        self.functions.iter().find(|x| x.name() == name)
     }
 
     //---------- Constraint ----------
@@ -104,8 +148,8 @@ impl Problem {
 
     pub fn entries(&self) -> Entries {
         let mut v = vec![];
+        v.extend(self.instances.iter().map(|x| Entry::from_id(self, x.id())));
         v.extend(self.variables.iter().map(|x| Entry::from_id(self, x.id())));
-        v.extend(self.functions.iter().map(|x| Entry::from_id(self, x.id())));
         Entries::new(v)
     }
 
@@ -114,6 +158,7 @@ impl Problem {
     pub fn naming(&self) -> Vec<Naming> {
         let mut v = vec![];
         v.extend(self.structures.iter().map(|x| x.naming()));
+        v.extend(self.instances.iter().map(|x| x.naming()));
         v.extend(self.variables.iter().map(|x| x.naming()));
         v.extend(self.functions.iter().map(|x| x.naming()));
         v.extend(self.constraints.iter().map(|x| x.naming()));
@@ -133,6 +178,16 @@ impl Problem {
 
     //---------- Resolve ----------
 
+    pub fn resolve_instance(&mut self) -> Result<(), Error> {
+        let mut instances = vec![];
+        for x in self.instances.iter() {
+            let instance = x.resolve_instance(self)?;
+            instances.push(instance);
+        }
+        self.instances = instances;
+        Ok(())
+    }
+
     pub fn resolve_type(&mut self) -> Result<(), Error> {
         let entries = self.type_entries();
         for x in self.structures.iter_mut() {
@@ -147,33 +202,33 @@ impl Problem {
         Ok(())
     }
 
-    pub fn resolve(&mut self) -> Result<(), Error> {
+    pub fn resolve_expr(&mut self) -> Result<(), Error> {
         let entries = self.entries();
         // Structure
         let mut structures = Vec::new();
         for x in self.structures.iter() {
-            let s = x.resolve(self, &entries)?;
+            let s = x.resolve_expr(self, &entries)?;
             structures.push(s);
         }
         self.structures = structures;
         // Variables
         let mut variables = Vec::new();
         for x in self.variables.iter() {
-            let v = x.resolve(self, &entries)?;
+            let v = x.resolve_expr(self, &entries)?;
             variables.push(v);
         }
         self.variables = variables;
         // Function
         let mut functions = Vec::new();
         for x in self.functions.iter() {
-            let f = x.resolve(self, &entries)?;
+            let f = x.resolve_expr(self, &entries)?;
             functions.push(f);
         }
         self.functions = functions;
         // Constraint
         let mut constraints = Vec::new();
         for x in self.constraints.iter() {
-            let c = x.resolve(self, &entries)?;
+            let c = x.resolve_expr(self, &entries)?;
             constraints.push(c);
         }
         self.constraints = constraints;
@@ -184,6 +239,9 @@ impl Problem {
     //---------- Interval ----------
 
     pub fn check_interval(&self) -> Result<(), Error> {
+        for x in self.structures.iter() {
+            x.check_interval(self)?;
+        }
         for x in self.variables.iter() {
             x.check_interval(self)?;
         }
@@ -193,9 +251,30 @@ impl Problem {
         Ok(())
     }
 
+    //---------- Parameter Size ----------
+
+    pub fn check_parameter_size(&self) -> Result<(), Error> {
+        for x in self.structures.iter() {
+            x.check_parameter_size(self)?;
+        }
+        for x in self.variables.iter() {
+            x.check_parameter_size(self)?;
+        }
+        for x in self.functions.iter() {
+            x.check_parameter_size(self)?;
+        }
+        for x in self.constraints.iter() {
+            x.check_parameter_size(self)?;
+        }
+        Ok(())
+    }
+
     //---------- Bounded ----------
 
     pub fn check_bounded(&self) -> Result<(), Error> {
+        for x in self.structures.iter() {
+            x.check_bounded(self)?;
+        }
         for x in self.functions.iter() {
             x.check_bounded(self)?;
         }
@@ -205,6 +284,9 @@ impl Problem {
     //---------- Typing ----------
 
     pub fn check_type(&self) -> Result<(), Error> {
+        for x in self.structures.iter() {
+            x.check_type(self)?;
+        }
         for x in self.variables.iter() {
             x.check_type(self)?;
         }
@@ -247,6 +329,9 @@ impl std::fmt::Display for Problem {
         for x in self.structures.iter() {
             write!(f, "{}\n", x.to_lang(self))?;
         }
+        for x in self.instances.iter() {
+            write!(f, "{}\n", x.to_lang(self))?;
+        }
         for x in self.variables.iter() {
             write!(f, "{}\n", x.to_lang(self))?;
         }
@@ -275,6 +360,22 @@ impl GetFromId<AttributeId, Attribute> for Problem {
         } else {
             None
         }
+    }
+}
+impl GetFromId<MethodId, Method> for Problem {
+    fn get(&self, id: MethodId) -> Option<&Method> {
+        let MethodId(structure_id, _) = id;
+        if let Some(structure) = self.get(structure_id) {
+            structure.get(id)
+        } else {
+            None
+        }
+    }
+}
+
+impl GetFromId<InstanceId, Instance> for Problem {
+    fn get(&self, id: InstanceId) -> Option<&Instance> {
+        self.get_instance(id)
     }
 }
 

@@ -21,16 +21,19 @@ impl ApplyValue {
     }
 }
 
-impl std::fmt::Display for ApplyValue {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "    (")?;
+//------------------------- To Lang -------------------------
+
+impl ToLang for ApplyValue {
+    fn to_lang(&self, problem: &Problem) -> String {
+        let mut s = "    (".to_string();
         if let Some((first, others)) = self.parameters.split_first() {
-            write!(f, "{}", first)?;
+            s.push_str(&format!("{}", first.to_lang(problem)));
             for p in others.iter() {
-                write!(f, ", {}", p)?;
+                s.push_str(&format!(", {}", p.to_lang(problem)));
             }
         }
-        write!(f, ") -> {}", self.value)
+        s.push_str(&format!(") -> {}", self.value.to_lang(problem)));
+        s
     }
 }
 
@@ -67,12 +70,15 @@ impl FunctionValue {
     }
 }
 
-impl std::fmt::Display for FunctionValue {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{{\n")?;
+//------------------------- To Lang -------------------------
+
+impl ToLang for FunctionValue {
+    fn to_lang(&self, problem: &Problem) -> String {
+        let mut s = "{{\n".to_string();
         for v in self.applies.iter() {
-            write!(f, "{}\n", v)?;
+            s.push_str(&format!("{}\n", v.to_lang(problem)));
         }
-        write!(f, "}}")
+        s.push_str("}}");
+        s
     }
 }

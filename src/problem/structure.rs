@@ -63,13 +63,8 @@ impl Structure {
         &self.attributes
     }
 
-    pub fn get_attribute_from_name(&self, name: &str) -> Option<&Attribute> {
-        for a in self.attributes.iter() {
-            if a.name() == name {
-                return Some(a);
-            }
-        }
-        None
+    pub fn find_attribute(&self, name: &str) -> Option<&Attribute> {
+        self.attributes.iter().find(|x| x.name() == name)
     }
 
     //---------- Method ----------
@@ -94,18 +89,14 @@ impl Structure {
         &self.methods
     }
 
+    pub fn find_method(&self, name: &str) -> Option<&Method> {
+        self.methods.iter().find(|x| x.name() == name)
+    }
+
     //---------- Type ----------
 
     pub fn typ(&self) -> Type {
         Type::Structure(self.id)
-    }
-
-    //---------- Entry ----------
-
-    pub fn entries(&self) -> Entries {
-        let mut v = vec![];
-        // TODO
-        Entries::new(v)
     }
 
     //---------- Duplicate ----------
@@ -137,17 +128,17 @@ impl Structure {
         Ok(())
     }
 
-    pub fn resolve(&self, problem: &Problem, entries: &Entries) -> Result<Structure, Error> {
+    pub fn resolve_expr(&self, problem: &Problem, entries: &Entries) -> Result<Structure, Error> {
         // Attribute
         let mut attributes = Vec::new();
         for x in self.attributes.iter() {
-            let a = x.resolve(problem, &entries)?;
+            let a = x.resolve_expr(problem, &entries)?;
             attributes.push(a);
         }
         // Methods
         let mut methods = Vec::new();
         for x in self.methods.iter() {
-            let m = x.resolve(problem, &entries)?;
+            let m = x.resolve_expr(problem, &entries)?;
             methods.push(m);
         }
         //
@@ -158,6 +149,51 @@ impl Structure {
             methods,
             position: self.position.clone(),
         })
+    }
+
+    //---------- Interval ----------
+
+    pub fn check_interval(&self, problem: &Problem) -> Result<(), Error> {
+        for x in self.attributes.iter() {
+            x.check_interval(problem)?;
+        }
+        for x in self.methods.iter() {
+            x.check_interval(problem)?;
+        }
+        Ok(())
+    }
+
+    //---------- Parameter Size ----------
+
+    pub fn check_parameter_size(&self, problem: &Problem) -> Result<(), Error> {
+        for x in self.attributes.iter() {
+            x.check_parameter_size(problem)?;
+        }
+        for x in self.methods.iter() {
+            x.check_parameter_size(problem)?;
+        }
+        Ok(())
+    }
+
+    //---------- Bounded ----------
+
+    pub fn check_bounded(&self, problem: &Problem) -> Result<(), Error> {
+        for x in self.methods.iter() {
+            x.check_bounded(problem)?;
+        }
+        Ok(())
+    }
+
+    //---------- Typing ----------
+
+    pub fn check_type(&self, problem: &Problem) -> Result<(), Error> {
+        for x in self.attributes.iter() {
+            x.check_type(problem)?;
+        }
+        for x in self.methods.iter() {
+            x.check_type(problem)?;
+        }
+        Ok(())
     }
 }
 
@@ -205,5 +241,11 @@ impl ToLang for Structure {
 impl GetFromId<AttributeId, Attribute> for Structure {
     fn get(&self, id: AttributeId) -> Option<&Attribute> {
         self.get_attribute(id)
+    }
+}
+
+impl GetFromId<MethodId, Method> for Structure {
+    fn get(&self, id: MethodId) -> Option<&Method> {
+        self.get_method(id)
     }
 }

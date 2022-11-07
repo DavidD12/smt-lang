@@ -44,14 +44,22 @@ impl ToLang for Solution {
             let mut v = variable.clone();
             v.clear_expr();
             let value = self.variables.get(&v.id()).unwrap();
-            s.push_str(&format!("{} = {}\n", v.to_lang(problem), value));
+            s.push_str(&format!(
+                "{} = {}\n",
+                v.to_lang(problem),
+                value.to_lang(problem)
+            ));
         }
         // Functions
         for function in problem.functions().iter() {
             let mut f = function.clone();
             f.clear_expr();
             let value = self.functions.get(&f.id()).unwrap();
-            s.push_str(&format!("{} = {}\n", f.to_lang(problem), value));
+            s.push_str(&format!(
+                "{} = {}\n",
+                f.to_lang(problem),
+                value.to_lang(problem)
+            ));
         }
         //
         s

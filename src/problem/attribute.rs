@@ -60,9 +60,16 @@ impl Attribute {
         Ok(())
     }
 
-    pub fn resolve(&self, problem: &Problem, entries: &Entries) -> Result<Attribute, Error> {
+    pub fn resolve_expr(&self, problem: &Problem, entries: &Entries) -> Result<Attribute, Error> {
         let expr = if let Some(e) = &self.expr {
-            let resolved = e.resolve(problem, entries)?;
+            let AttributeId(structure_id, _) = self.id();
+            let resolved = e.resolve(
+                problem,
+                &entries.add(Entry::new(
+                    "self".to_string(),
+                    EntryType::Self_(structure_id),
+                )),
+            )?;
             Some(resolved)
         } else {
             None
@@ -80,6 +87,15 @@ impl Attribute {
 
     pub fn check_interval(&self, problem: &Problem) -> Result<(), Error> {
         self.typ.check_interval(problem, &self.position)
+    }
+
+    //---------- Parameter Size ----------
+
+    pub fn check_parameter_size(&self, problem: &Problem) -> Result<(), Error> {
+        if let Some(expr) = &self.expr {
+            expr.check_parameter_size(problem)?;
+        }
+        Ok(())
     }
 
     //---------- Typing ----------

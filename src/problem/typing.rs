@@ -40,11 +40,13 @@ impl Type {
                 Some(entry) => match entry.typ() {
                     TypeEntryType::Structure(id) => Ok(Type::Structure(id)),
                     _ => Err(Error::Resolve {
+                        category: "type".to_string(),
                         name: name.clone(),
                         position: position.clone(),
                     }),
                 },
                 None => Err(Error::Resolve {
+                    category: "type".to_string(),
                     name: name.clone(),
                     position: position.clone(),
                 }),
@@ -105,7 +107,7 @@ impl Type {
         }
     }
 
-    pub fn is_strcuture(&self) -> bool {
+    pub fn is_structure(&self) -> bool {
         match self {
             Type::Structure(_) => true,
             _ => false,

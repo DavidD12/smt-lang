@@ -9,10 +9,14 @@ pub struct Smt<'a> {
     _cfg: &'a z3::Config,
     ctx: &'a z3::Context,
     solver: &'a z3::Solver<'a>,
+    // Structure
+    structure_sort: HashMap<StructureId, z3::Sort<'a>>,
     // Variable
+    instances: HashMap<InstanceId, z3::ast::Datatype<'a>>,
     bool_variables: HashMap<VariableId, z3::ast::Bool<'a>>,
     int_variables: HashMap<VariableId, z3::ast::Int<'a>>,
     real_variables: HashMap<VariableId, z3::ast::Real<'a>>,
+    datatype_variables: HashMap<VariableId, z3::ast::Datatype<'a>>,
     // Function
     functions: HashMap<FunctionId, z3::FuncDecl<'a>>,
     // Constraint
@@ -31,9 +35,12 @@ impl<'a> Smt<'a> {
             _cfg: cfg,
             ctx,
             solver,
+            structure_sort: HashMap::new(),
+            instances: HashMap::new(),
             bool_variables: HashMap::new(),
             int_variables: HashMap::new(),
             real_variables: HashMap::new(),
+            datatype_variables: HashMap::new(),
             functions: HashMap::new(),
             constraints: HashMap::new(),
         }
@@ -53,14 +60,39 @@ impl<'a> Smt<'a> {
             Type::Int => z3::Sort::int(self.ctx),
             Type::Real => z3::Sort::real(self.ctx),
             Type::Interval(_, _) => z3::Sort::int(self.ctx),
-            // Type::Function(_, t) => self.to_sort(t),
-            Type::Structure(id) => {
-                // TODO
-                todo!()
-            }
+            Type::Structure(id) => self.structure_sort.get(id).unwrap().clone(),
             Type::Unresolved(_, _) => panic!(),
             Type::Undefined => panic!(),
         }
+    }
+
+    //------------------------- Structure -------------------------
+
+    fn declare_structure(&mut self, structure: &Structure) {
+        let instances = self.problem.structure_instances(structure.id());
+        let names = instances
+            .iter()
+            .map(|i| self.problem.get(*i).unwrap().name().into())
+            .collect::<Vec<_>>();
+        let (sort, consts, _testers) =
+            z3::Sort::enumeration(self.ctx, structure.name().into(), &names);
+        // Sort
+        self.structure_sort.insert(structure.id(), sort);
+        // Datatype
+        for (id, f) in instances.iter().zip(consts.into_iter()) {
+            self.instances
+                .insert(*id, f.apply(&[]).as_datatype().unwrap());
+        }
+    }
+
+    fn declare_structures(&mut self) {
+        for x in self.problem.structures().iter() {
+            self.declare_structure(x);
+        }
+    }
+
+    fn instance(&self, id: InstanceId) -> &z3::ast::Datatype<'a> {
+        &self.instances[&id]
     }
 
     //------------------------- Variable -------------------------
@@ -83,10 +115,10 @@ impl<'a> Smt<'a> {
                 let v = z3::ast::Int::new_const(self.ctx, variable.name());
                 self.int_variables.insert(variable.id(), v);
             }
-            // Type::Function(_, _) => panic!(),
             Type::Structure(id) => {
-                // TODO
-                todo!()
+                let sort = &self.structure_sort[&id];
+                let v = z3::ast::Datatype::new_const(self.ctx, variable.name(), sort);
+                self.datatype_variables.insert(variable.id(), v);
             }
             Type::Unresolved(_, _) => panic!(),
             Type::Undefined => panic!(),
@@ -127,10 +159,12 @@ impl<'a> Smt<'a> {
                 self.solver
                     .assert(&v.le(&z3::ast::Int::from_i64(self.ctx, max as i64)));
             }
-            // Type::Function(_, _) => panic!(),
-            Type::Structure(id) => {
-                // TODO
-                todo!()
+            Type::Structure(_) => {
+                let v = self.datatype_variable(variable.id());
+                if let Some(e) = variable.expr() {
+                    let e = self.to_datatype(e);
+                    self.solver.assert(&v._eq(&e));
+                }
             }
             Type::Unresolved(_, _) => panic!(),
             Type::Undefined => panic!(),
@@ -159,6 +193,10 @@ impl<'a> Smt<'a> {
 
     pub fn real_variable(&self, id: VariableId) -> &z3::ast::Real<'a> {
         self.real_variables.get(&id).unwrap()
+    }
+
+    pub fn datatype_variable(&self, id: VariableId) -> &z3::ast::Datatype<'a> {
+        self.datatype_variables.get(&id).unwrap()
     }
 
     //------------------------- Function -------------------------
@@ -344,6 +382,14 @@ impl<'a> Smt<'a> {
                         BinOp::Gt => l.gt(&r),
                         _ => panic!(),
                     }
+                } else if t.is_structure() {
+                    let l = self.to_datatype(l);
+                    let r = self.to_datatype(r);
+                    match op {
+                        BinOp::Eq => l._eq(&r),
+                        BinOp::Ne => z3::ast::Bool::not(&l._eq(&r)),
+                        _ => panic!(),
+                    }
                 } else {
                     panic!()
                 }
@@ -433,10 +479,24 @@ impl<'a> Smt<'a> {
         }
     }
 
+    pub fn to_datatype(&self, expr: &Expr) -> z3::ast::Datatype<'a> {
+        match expr {
+            Expr::FunctionCall(id, parameters, _) => {
+                self.fun_call(*id, parameters).as_datatype().unwrap()
+            }
+            Expr::Instance(id, _) => self.instance(*id).clone(),
+            Expr::Variable(id, _) => self.datatype_variable(*id).clone(),
+            Expr::Attribute(_, _, _) => todo!(),     // TODO
+            Expr::MethodCall(_, _, _, _) => todo!(), // TODO
+            _ => panic!("to_datatype {:?}", expr),
+        }
+    }
+
     //------------------------- -------------------------
 
     pub fn init(&mut self) {
         // Declare
+        self.declare_structures();
         self.declare_variables();
         self.declare_functions();
         // Define

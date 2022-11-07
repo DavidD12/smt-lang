@@ -40,7 +40,7 @@ impl Constraint {
 
     //---------- Resolve ----------
 
-    pub fn resolve(&self, problem: &Problem, entries: &Entries) -> Result<Constraint, Error> {
+    pub fn resolve_expr(&self, problem: &Problem, entries: &Entries) -> Result<Constraint, Error> {
         let expr = self.expr.resolve(problem, entries)?;
         Ok(Constraint {
             id: self.id,
@@ -48,6 +48,12 @@ impl Constraint {
             expr,
             position: self.position.clone(),
         })
+    }
+
+    //---------- Parameter Size ----------
+
+    pub fn check_parameter_size(&self, problem: &Problem) -> Result<(), Error> {
+        self.expr.check_parameter_size(problem)
     }
 
     //---------- Typing ----------

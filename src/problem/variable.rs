@@ -60,7 +60,7 @@ impl Variable {
         Ok(())
     }
 
-    pub fn resolve(&self, problem: &Problem, entries: &Entries) -> Result<Variable, Error> {
+    pub fn resolve_expr(&self, problem: &Problem, entries: &Entries) -> Result<Variable, Error> {
         let expr = if let Some(e) = &self.expr {
             let resolved = e.resolve(problem, entries)?;
             Some(resolved)
@@ -80,6 +80,15 @@ impl Variable {
 
     pub fn check_interval(&self, problem: &Problem) -> Result<(), Error> {
         self.typ.check_interval(problem, &self.position)
+    }
+
+    //---------- Parameter Size ----------
+
+    pub fn check_parameter_size(&self, problem: &Problem) -> Result<(), Error> {
+        if let Some(expr) = &self.expr {
+            expr.check_parameter_size(problem)?;
+        }
+        Ok(())
     }
 
     //---------- Typing ----------

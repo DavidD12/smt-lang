@@ -23,6 +23,7 @@ pub Problem: () = Entry* => {};
 Entry: () = {
     Include,
     Structure,
+    Instance,
     Variable,
     Function,
     Constraint,
@@ -56,6 +57,17 @@ StructureElement: StructureElement = {
     <a:Attribute> => StructureElement::Attribute(a),
     <m:Method> => StructureElement::Method(m),
 };
+
+//------------------------- Variable -------------------------
+
+Instance: () = "inst" <l:Identifiers> ":" <s:Identifier> => {
+    for i in l {
+        let struct_ref = StructureRef::Unresolved(s.name.clone(), Some(s.position.clone()));
+        let position = Some(i.position.clone());
+        let inst = Instance::new(i.name, struct_ref, position);
+        parser.problem.add_instance(inst);
+    }
+}; 
 
 //------------------------- Attribute -------------------------
 
@@ -207,11 +219,15 @@ FunCallExpr: Expr = {
         let position = Some(i.position);
         Expr::UnresolvedFunCall(i.name, p, position)
     },
-    AttributeExpr,
+    StructExpr,
 };
 
-AttributeExpr: Expr = {
-    <e:AttributeExpr> "." <i:Identifier> => {
+StructExpr: Expr = {
+    <e:StructExpr> "." <i:Identifier> <p:TupleExpr> => {
+        let position = Some(i.position);
+        Expr::UnresolvedMethCall(Box::new(e), i.name, p, position)
+    },
+    <e:StructExpr> "." <i:Identifier> => {
         let position = Some(i.position);
         Expr::UnresolvedAttribute(Box::new(e), i.name, position)
     },

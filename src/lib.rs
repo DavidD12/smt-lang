@@ -34,7 +34,7 @@ pub fn load_file(
     match parser::parse_file(problem, filename) {
         Ok(_) => {
             if verbose >= 2 {
-                pretty.add(ok_entry("Parse   "));
+                pretty.add(ok_entry("Parse    "));
                 pretty.print();
             }
         }
@@ -44,26 +44,37 @@ pub fn load_file(
     match problem.duplicate() {
         Ok(_) => {
             if verbose >= 2 {
-                pretty.add(ok_entry("Unicity "));
+                pretty.add(ok_entry("Unicity  "));
                 pretty.print();
             }
         }
         Err(e) => return Err(e),
     }
-    // Resolve
+    // Resolve Instance
+    match problem.resolve_instance() {
+        Ok(_) => {
+            if verbose >= 2 {
+                pretty.add(ok_entry("Resolve I"));
+                pretty.print();
+            }
+        }
+        Err(e) => return Err(e),
+    }
+    // Resolve Type
     match problem.resolve_type() {
         Ok(_) => {
             if verbose >= 2 {
-                pretty.add(ok_entry("ResolveT"));
+                pretty.add(ok_entry("Resolve T"));
                 pretty.print();
             }
         }
         Err(e) => return Err(e),
     }
-    match problem.resolve() {
+    // resolve Expr
+    match problem.resolve_expr() {
         Ok(_) => {
             if verbose >= 2 {
-                pretty.add(ok_entry("ResolveE"));
+                pretty.add(ok_entry("Resolve E"));
                 pretty.print();
             }
         }
@@ -73,7 +84,17 @@ pub fn load_file(
     match problem.check_interval() {
         Ok(_) => {
             if verbose >= 2 {
-                pretty.add(ok_entry("Interval"));
+                pretty.add(ok_entry("Interval "));
+                pretty.print();
+            }
+        }
+        Err(e) => return Err(e),
+    }
+    // Check Parameter Size
+    match problem.check_parameter_size() {
+        Ok(_) => {
+            if verbose >= 2 {
+                pretty.add(ok_entry("Parameter"));
                 pretty.print();
             }
         }
@@ -83,7 +104,7 @@ pub fn load_file(
     match problem.check_bounded() {
         Ok(_) => {
             if verbose >= 2 {
-                pretty.add(ok_entry("Bounded "));
+                pretty.add(ok_entry("Bounded  "));
                 pretty.print();
             }
         }
@@ -93,7 +114,7 @@ pub fn load_file(
     match problem.check_type() {
         Ok(_) => {
             if verbose >= 2 {
-                pretty.add(ok_entry("Type    "));
+                pretty.add(ok_entry("Type     "));
                 pretty.print();
             }
         }

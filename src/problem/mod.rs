@@ -20,6 +20,8 @@ pub mod method;
 pub use method::*;
 pub mod argument;
 pub use argument::*;
+pub mod instance;
+pub use instance::*;
 
 pub mod constraint;
 pub use constraint::*;

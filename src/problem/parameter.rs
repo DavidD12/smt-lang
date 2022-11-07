@@ -53,12 +53,12 @@ impl Parameter {
 
     //---------- Bounded ----------
 
-    pub fn check_bounded(&self, _: &Problem) -> Result<(), Error> {
+    pub fn check_bounded(&self, problem: &Problem) -> Result<(), Error> {
         if self.typ.is_bounded() {
             Ok(())
         } else {
             Err(Error::Bounded {
-                name: self.name.clone(),
+                name: self.to_lang(problem),
                 position: self.position.clone(),
             })
         }
