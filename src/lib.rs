@@ -120,6 +120,16 @@ pub fn load_file(
         }
         Err(e) => return Err(e),
     }
+    // Check Empty
+    match problem.check_empty() {
+        Ok(_) => {
+            if verbose >= 2 {
+                pretty.add(ok_entry("Empty    "));
+                pretty.print();
+            }
+        }
+        Err(e) => return Err(e),
+    }
 
     Ok(())
 }

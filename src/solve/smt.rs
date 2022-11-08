@@ -11,8 +11,9 @@ pub struct Smt<'a> {
     solver: &'a z3::Solver<'a>,
     // Structure
     structure_sort: HashMap<StructureId, z3::Sort<'a>>,
-    // Variable
     instances: HashMap<InstanceId, z3::ast::Datatype<'a>>,
+    attributes: HashMap<AttributeId, z3::FuncDecl<'a>>,
+    // Variable
     bool_variables: HashMap<VariableId, z3::ast::Bool<'a>>,
     int_variables: HashMap<VariableId, z3::ast::Int<'a>>,
     real_variables: HashMap<VariableId, z3::ast::Real<'a>>,
@@ -37,6 +38,7 @@ impl<'a> Smt<'a> {
             solver,
             structure_sort: HashMap::new(),
             instances: HashMap::new(),
+            attributes: HashMap::new(),
             bool_variables: HashMap::new(),
             int_variables: HashMap::new(),
             real_variables: HashMap::new(),
@@ -78,11 +80,20 @@ impl<'a> Smt<'a> {
             z3::Sort::enumeration(self.ctx, structure.name().into(), &names);
         // Sort
         self.structure_sort.insert(structure.id(), sort);
-        // Datatype
+        // Instance
         for (id, f) in instances.iter().zip(consts.into_iter()) {
             self.instances
                 .insert(*id, f.apply(&[]).as_datatype().unwrap());
         }
+        // Attribute
+        for attribute in structure.attributes().iter() {
+            let sort = self.structure_sort(structure.id());
+            let name = format!("_{}__{}", structure.name(), attribute.name());
+            let fun = z3::FuncDecl::new(self.ctx, name, &[sort], &self.to_sort(&attribute.typ()));
+            self.attributes.insert(attribute.id(), fun);
+        }
+        // Method
+        // TODO
     }
 
     fn declare_structures(&mut self) {
@@ -91,7 +102,35 @@ impl<'a> Smt<'a> {
         }
     }
 
-    fn instance(&self, id: InstanceId) -> &z3::ast::Datatype<'a> {
+    fn define_structure(&mut self, structure: &Structure) {
+        // Attribute
+        for attribute in structure.attributes().iter() {
+            if let Some(expr) = attribute.expr() {
+                for instance in self.problem.structure_instances(structure.id()) {
+                    let self_expr = Expr::SelfExpr(structure.id(), None);
+                    let inst_expr = Expr::Instance(instance, None);
+                    let expr = expr.substitute(&self_expr, &inst_expr);
+                    let att_expr = Expr::Attribute(Box::new(inst_expr), attribute.id(), None);
+                    let ass = Expr::BinExpr(Box::new(att_expr), BinOp::Eq, Box::new(expr), None);
+                    self.solver.assert(&self.to_bool(&ass));
+                }
+            }
+        }
+        // Method
+        // TODO
+    }
+
+    fn define_structures(&mut self) {
+        for x in self.problem.structures().iter() {
+            self.define_structure(x);
+        }
+    }
+
+    fn structure_sort(&self, id: StructureId) -> &z3::Sort<'a> {
+        &self.structure_sort[&id]
+    }
+
+    pub fn instance(&self, id: InstanceId) -> &z3::ast::Datatype<'a> {
         &self.instances[&id]
     }
 
@@ -111,12 +150,17 @@ impl<'a> Smt<'a> {
                 let v = z3::ast::Real::new_const(self.ctx, variable.name());
                 self.real_variables.insert(variable.id(), v);
             }
-            Type::Interval(_, _) => {
+            Type::Interval(min, max) => {
                 let v = z3::ast::Int::new_const(self.ctx, variable.name());
                 self.int_variables.insert(variable.id(), v);
+                let v = self.int_variable(variable.id());
+                self.solver
+                    .assert(&v.ge(&z3::ast::Int::from_i64(self.ctx, min as i64)));
+                self.solver
+                    .assert(&v.le(&z3::ast::Int::from_i64(self.ctx, max as i64)));
             }
             Type::Structure(id) => {
-                let sort = &self.structure_sort[&id];
+                let sort = self.structure_sort.get(&id).unwrap();
                 let v = z3::ast::Datatype::new_const(self.ctx, variable.name(), sort);
                 self.datatype_variables.insert(variable.id(), v);
             }
@@ -126,48 +170,10 @@ impl<'a> Smt<'a> {
     }
 
     fn define_variable(&mut self, variable: &Variable) {
-        match variable.typ() {
-            Type::Bool => {
-                let v = self.bool_variable(variable.id());
-                if let Some(e) = variable.expr() {
-                    let e = self.to_bool(e);
-                    self.solver.assert(&v._eq(&e));
-                }
-            }
-            Type::Int => {
-                let v = self.int_variable(variable.id());
-                if let Some(e) = variable.expr() {
-                    let e = self.to_int(e);
-                    self.solver.assert(&v._eq(&e));
-                }
-            }
-            Type::Real => {
-                let v = self.real_variable(variable.id());
-                if let Some(e) = variable.expr() {
-                    let e = self.to_real(e);
-                    self.solver.assert(&v._eq(&e));
-                }
-            }
-            Type::Interval(min, max) => {
-                let v = self.int_variable(variable.id());
-                if let Some(e) = variable.expr() {
-                    let e = self.to_int(e);
-                    self.solver.assert(&v._eq(&e));
-                }
-                self.solver
-                    .assert(&v.ge(&z3::ast::Int::from_i64(self.ctx, min as i64)));
-                self.solver
-                    .assert(&v.le(&z3::ast::Int::from_i64(self.ctx, max as i64)));
-            }
-            Type::Structure(_) => {
-                let v = self.datatype_variable(variable.id());
-                if let Some(e) = variable.expr() {
-                    let e = self.to_datatype(e);
-                    self.solver.assert(&v._eq(&e));
-                }
-            }
-            Type::Unresolved(_, _) => panic!(),
-            Type::Undefined => panic!(),
+        if let Some(expr) = variable.expr() {
+            let v = Expr::Variable(variable.id(), None);
+            let e = &Expr::BinExpr(Box::new(v), BinOp::Eq, Box::new(expr.clone()), None);
+            self.solver.assert(&self.to_bool(&e));
         }
     }
 
@@ -395,6 +401,11 @@ impl<'a> Smt<'a> {
                 }
             }
             Expr::Variable(id, _) => self.bool_variable(*id).clone(),
+            Expr::Attribute(e, id, _) => {
+                let fun = self.attributes.get(&id).unwrap();
+                let e = self.to_datatype(e);
+                fun.apply(&[&e]).as_bool().unwrap()
+            }
             Expr::FunctionCall(id, parameters, _) => {
                 self.fun_call(*id, parameters).as_bool().unwrap()
             }
@@ -427,6 +438,11 @@ impl<'a> Smt<'a> {
                 }
             }
             Expr::Variable(id, _) => self.int_variable(*id).clone(),
+            Expr::Attribute(e, id, _) => {
+                let fun = self.attributes.get(&id).unwrap();
+                let e = self.to_datatype(e);
+                fun.apply(&[&e]).as_int().unwrap()
+            }
             Expr::FunctionCall(id, parameters, _) => {
                 self.fun_call(*id, parameters).as_int().unwrap()
             }
@@ -472,6 +488,11 @@ impl<'a> Smt<'a> {
                 }
             }
             Expr::Variable(id, _) => self.real_variable(*id).clone(),
+            Expr::Attribute(e, id, _) => {
+                let fun = self.attributes.get(&id).unwrap();
+                let e = self.to_datatype(e);
+                fun.apply(&[&e]).as_real().unwrap()
+            }
             Expr::FunctionCall(id, parameters, _) => {
                 self.fun_call(*id, parameters).as_real().unwrap()
             }
@@ -486,7 +507,11 @@ impl<'a> Smt<'a> {
             }
             Expr::Instance(id, _) => self.instance(*id).clone(),
             Expr::Variable(id, _) => self.datatype_variable(*id).clone(),
-            Expr::Attribute(_, _, _) => todo!(),     // TODO
+            Expr::Attribute(e, id, _) => {
+                let fun = self.attributes.get(&id).unwrap();
+                let e = self.to_datatype(e);
+                fun.apply(&[&e]).as_datatype().unwrap()
+            }
             Expr::MethodCall(_, _, _, _) => todo!(), // TODO
             _ => panic!("to_datatype {:?}", expr),
         }
@@ -500,6 +525,7 @@ impl<'a> Smt<'a> {
         self.declare_variables();
         self.declare_functions();
         // Define
+        self.define_structures();
         self.define_variables();
         self.define_functions();
         // Constraint

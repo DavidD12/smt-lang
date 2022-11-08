@@ -5,6 +5,8 @@ use crate::solve::Smt;
 use std::collections::HashMap;
 
 pub struct Solution {
+    // Structure
+    structures: HashMap<StructureId, StructureValue>,
     // Variable
     variables: HashMap<VariableId, Value>,
     // Function
@@ -13,8 +15,14 @@ pub struct Solution {
 
 impl Solution {
     pub fn new(smt: &Smt, model: &z3::Model) -> Self {
-        let mut variables = HashMap::new();
+        // Structures
+        let mut structures = HashMap::new();
+        for structure in smt.problem().structures().iter() {
+            let value = StructureValue::new(smt, model, structure.id());
+            structures.insert(structure.id(), value);
+        }
         // Variables
+        let mut variables = HashMap::new();
         for variable in smt.problem().variables().iter() {
             let value = Value::new(smt, model, &Expr::Variable(variable.id(), None));
             variables.insert(variable.id(), value);
@@ -28,6 +36,7 @@ impl Solution {
         }
         //
         Self {
+            structures,
             variables,
             functions,
         }
@@ -39,6 +48,10 @@ impl Solution {
 impl ToLang for Solution {
     fn to_lang(&self, problem: &Problem) -> String {
         let mut s = "".to_string();
+        // Structures
+        for structure in self.structures.values() {
+            s.push_str(&structure.to_lang(problem));
+        }
         // Variables
         for variable in problem.variables().iter() {
             let mut v = variable.clone();

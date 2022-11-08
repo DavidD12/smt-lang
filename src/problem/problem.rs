@@ -50,6 +50,10 @@ impl Problem {
             .collect()
     }
 
+    pub fn structure_is_empty(&self, id: StructureId) -> bool {
+        self.structure_instances(id).is_empty()
+    }
+
     //---------- Instance ----------
 
     pub fn add_instance(&mut self, mut instance: Instance) -> InstanceId {
@@ -299,6 +303,20 @@ impl Problem {
         Ok(())
     }
 
+    //---------- Typing ----------
+
+    pub fn check_empty(&self) -> Result<(), Error> {
+        for x in self.structures.iter() {
+            if self.structure_is_empty(x.id()) {
+                return Err(Error::Empty {
+                    name: x.name().to_string(),
+                    category: "Structure".to_string(),
+                });
+            }
+        }
+        Ok(())
+    }
+
     //---------- To Entry ----------
 
     pub fn to_entry(&self) -> d_stuff::Entry {
@@ -390,8 +408,8 @@ impl GetFromId<FunctionId, Function> for Problem {
         self.get_function(id)
     }
 }
-impl GetFromId<ParameterId, Parameter> for Problem {
-    fn get(&self, id: ParameterId) -> Option<&Parameter> {
+impl GetFromId<ParameterId<FunctionId>, Parameter<FunctionId>> for Problem {
+    fn get(&self, id: ParameterId<FunctionId>) -> Option<&Parameter<FunctionId>> {
         let ParameterId(function_id, _) = id;
         if let Some(function) = self.get(function_id) {
             function.get(id)

@@ -4,25 +4,25 @@ use crate::parser::Position;
 //------------------------- Id -------------------------
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Hash)]
-pub struct ParameterId(pub FunctionId, pub usize);
+pub struct ParameterId<T: Id>(pub T, pub usize);
 
-impl Id for ParameterId {
+impl<T: Id> Id for ParameterId<T> {
     fn empty() -> Self {
-        Self(FunctionId::empty(), 0)
+        Self(T::empty(), 0)
     }
 }
 
 //------------------------- Parameter -------------------------
 
 #[derive(Clone)]
-pub struct Parameter {
-    id: ParameterId,
+pub struct Parameter<T: Id> {
+    id: ParameterId<T>,
     name: String,
     typ: Type,
     position: Option<Position>,
 }
 
-impl Parameter {
+impl<T: Id> Parameter<T> {
     pub fn new<S: Into<String>>(name: S, typ: Type, position: Option<Position>) -> Self {
         let id = ParameterId::empty();
         let name = name.into();
@@ -67,12 +67,12 @@ impl Parameter {
 
 //------------------------- Named -------------------------
 
-impl Named<ParameterId> for Parameter {
-    fn id(&self) -> ParameterId {
+impl<T: Id> Named<ParameterId<T>> for Parameter<T> {
+    fn id(&self) -> ParameterId<T> {
         self.id
     }
 
-    fn set_id(&mut self, id: ParameterId) {
+    fn set_id(&mut self, id: ParameterId<T>) {
         self.id = id;
     }
 
@@ -87,7 +87,7 @@ impl Named<ParameterId> for Parameter {
 
 //------------------------- ToLang -------------------------
 
-impl ToLang for Parameter {
+impl<T: Id> ToLang for Parameter<T> {
     fn to_lang(&self, problem: &Problem) -> String {
         format!("{}: {}", self.name(), self.typ.to_lang(problem))
     }

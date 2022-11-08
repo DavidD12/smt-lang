@@ -7,7 +7,7 @@ pub enum EntryType {
     Instance(InstanceId),
     Variable(VariableId),
     // Function(FunctionId),
-    Parameter(ParameterId),
+    Parameter(ParameterId<FunctionId>),
     Self_(StructureId),
     Argument(ArgumentId),
 }
@@ -58,8 +58,8 @@ impl FromId<VariableId> for Entry {
 //     }
 // }
 
-impl FromId<ParameterId> for Entry {
-    fn from_id(problem: &Problem, id: ParameterId) -> Self {
+impl FromId<ParameterId<FunctionId>> for Entry {
+    fn from_id(problem: &Problem, id: ParameterId<FunctionId>) -> Self {
         let name = problem.get(id).unwrap().name().into();
         let typ = EntryType::Parameter(id);
         Self { name, typ }

@@ -18,7 +18,7 @@ impl Id for FunctionId {
 pub struct Function {
     id: FunctionId,
     name: String,
-    parameters: Vec<Parameter>,
+    parameters: Vec<Parameter<FunctionId>>,
     return_type: Type,
     expr: Option<Expr>,
     position: Option<Position>,
@@ -61,14 +61,17 @@ impl Function {
 
     //---------- Parameter ----------
 
-    pub fn add_parameter(&mut self, mut parameter: Parameter) -> ParameterId {
+    pub fn add_parameter(
+        &mut self,
+        mut parameter: Parameter<FunctionId>,
+    ) -> ParameterId<FunctionId> {
         let id = ParameterId(self.id, self.parameters.len());
         parameter.set_id(id);
         self.parameters.push(parameter);
         id
     }
 
-    pub fn get_parameter(&self, id: ParameterId) -> Option<&Parameter> {
+    pub fn get_parameter(&self, id: ParameterId<FunctionId>) -> Option<&Parameter<FunctionId>> {
         let ParameterId(function_id, n) = id;
         if self.id != function_id {
             None
@@ -77,7 +80,7 @@ impl Function {
         }
     }
 
-    pub fn parameters(&self) -> &Vec<Parameter> {
+    pub fn parameters(&self) -> &Vec<Parameter<FunctionId>> {
         &self.parameters
     }
 
@@ -219,8 +222,8 @@ impl ToLang for Function {
 
 //------------------------- Get From Id -------------------------
 
-impl GetFromId<ParameterId, Parameter> for Function {
-    fn get(&self, id: ParameterId) -> Option<&Parameter> {
+impl GetFromId<ParameterId<FunctionId>, Parameter<FunctionId>> for Function {
+    fn get(&self, id: ParameterId<FunctionId>) -> Option<&Parameter<FunctionId>> {
         self.get_parameter(id)
     }
 }

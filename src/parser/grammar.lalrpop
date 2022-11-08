@@ -115,7 +115,7 @@ Variable: () = "let" <l:Identifiers> ":" <t:Type> <e:Assign?> => {
 
 //------------------------- Function -------------------------
 
-Function: () = "let" <i:Identifier> "(" <p:Parameters> ")" ":" <t:Type> <e:Assign?> => {
+Function: () = "let" <i:Identifier> "(" <p:FunParameters> ")" ":" <t:Type> <e:Assign?> => {
     let position = Some(i.position.clone());
     let mut f = Function::new(i.name, t, e, position);
     for x in p {
@@ -124,21 +124,21 @@ Function: () = "let" <i:Identifier> "(" <p:Parameters> ")" ":" <t:Type> <e:Assig
     parser.problem.add_function(f);
 };    
 
-//------------------------- Parameter -------------------------
+//------------------------- Function Parameter -------------------------
 
-Parameter: Parameter = <i:Identifier> ":" <t:Type> => {
+FunParameter: Parameter<FunctionId> = <i:Identifier> ":" <t:Type> => {
     let position = Some(i.position.clone());
     Parameter::new(i.name, t, position)
 };
 
-Parameters: Vec<Parameter> = <p:Parameter> <l:ParameterNext*> => {
+FunParameters: Vec<Parameter<FunctionId>> = <p:FunParameter> <l:FunParameterNext*> => {
     let mut parameters = Vec::new();
     parameters.push(p);
     parameters.extend(l);
     parameters
 };
 
-ParameterNext: Parameter = "," <p:Parameter> => p;
+FunParameterNext: Parameter<FunctionId> = "," <p:FunParameter> => p;
 
 //------------------------- Constraint -------------------------
 
@@ -328,6 +328,6 @@ Integer: i64 = <i:r"-?[0-9]+"> => i.parse::<i64>().unwrap();
 
 Decimal: Fraction = <d:r"[0-9]+\.[0-9]+"> => Fraction::from_str(d).unwrap();
 
-Identifier: Identifier = <l:@L> <s:r"[a-zA-Z_][a-zA-Z_0-9]*"> <r:@R> => {
+Identifier: Identifier = <l:@L> <s:r"[a-zA-Z][a-zA-Z_0-9]*"> <r:@R> => {
     Identifier::new(parser.file(), lookup, s, l)
 };

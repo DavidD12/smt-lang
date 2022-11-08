@@ -74,11 +74,11 @@ impl FunctionValue {
 
 impl ToLang for FunctionValue {
     fn to_lang(&self, problem: &Problem) -> String {
-        let mut s = "{{\n".to_string();
+        let mut s = "{\n".to_string();
         for v in self.applies.iter() {
             s.push_str(&format!("{}\n", v.to_lang(problem)));
         }
-        s.push_str("}}");
+        s.push_str("}");
         s
     }
 }

@@ -48,6 +48,10 @@ pub enum Error {
         typ: Type,
         expected: Vec<Type>,
     },
+    Empty {
+        name: String,
+        category: String,
+    },
 }
 
 impl Error {
@@ -571,6 +575,37 @@ impl ToEntry for Error {
                     d_stuff::Status::Failure,
                     d_stuff::Text::new(
                         "Type",
+                        termion::style::Bold.to_string(),
+                        termion::color::Blue.fg_str(),
+                    ),
+                    Some(d_stuff::Text::new(
+                        "ERROR",
+                        termion::style::Reset.to_string(),
+                        termion::color::Red.fg_str(),
+                    )),
+                    messages,
+                )
+            }
+            Error::Empty { name, category } => {
+                let mut messages = vec![];
+
+                messages.push(d_stuff::Message::new(
+                    Some(d_stuff::Text::new(
+                        format!("Empty {}", category),
+                        termion::style::Reset.to_string(),
+                        termion::color::Red.fg_str(),
+                    )),
+                    d_stuff::Text::new(
+                        format!("'{}'", name),
+                        termion::style::Reset.to_string(),
+                        termion::color::LightBlue.fg_str(),
+                    ),
+                ));
+
+                d_stuff::Entry::new(
+                    d_stuff::Status::Failure,
+                    d_stuff::Text::new(
+                        "Empty",
                         termion::style::Bold.to_string(),
                         termion::color::Blue.fg_str(),
                     ),

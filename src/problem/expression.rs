@@ -80,7 +80,7 @@ pub enum Expr {
     FunctionCall(FunctionId, Vec<Expr>, Option<Position>),
     //
     Variable(VariableId, Option<Position>),
-    Parameter(ParameterId, Option<Position>),
+    Parameter(ParameterId<FunctionId>, Option<Position>),
     //
     Instance(InstanceId, Option<Position>),
     SelfExpr(StructureId, Option<Position>),
