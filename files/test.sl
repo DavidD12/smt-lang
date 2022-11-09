@@ -1,12 +1,14 @@
 struct S {
     a: Int
     // b: Int // = self.a + 1
-    // m(i: 1..10): Int
+    m(s: S): S
 }
-inst s: S
+inst s1, s2: S
 // inst s1, s2: S
 
-// let x: S
+let x: S = s1
+
+let f(s: S): S
 
 // let x, y: S
 // let z: S // = s1

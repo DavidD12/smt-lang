@@ -121,7 +121,7 @@ impl Function {
         let expr = if let Some(e) = &self.expr {
             let mut entries = entries.clone();
             for p in self.parameters.iter() {
-                let entry = Entry::new(p.name().to_string(), EntryType::Parameter(p.id()));
+                let entry = Entry::new(p.name().to_string(), EntryType::FunParam(p.id()));
                 entries = entries.add(entry);
             }
             let resolved = e.resolve(problem, &entries)?;

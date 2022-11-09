@@ -8,3 +8,4 @@
 - add check interval into expr with tth type conversion
 - mutualiser les definition avec un trait with Expr et redefinition les check et resolve
 - mutualiser les eq/ne/lt/.. commen dans Many
+- supprimer tous les Id specifiques et remplacer par deux paramètrés: root et node

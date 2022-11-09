@@ -39,11 +39,11 @@ impl Type {
             Type::Unresolved(name, position) => match entries.get(&name) {
                 Some(entry) => match entry.typ() {
                     TypeEntryType::Structure(id) => Ok(Type::Structure(id)),
-                    _ => Err(Error::Resolve {
-                        category: "type".to_string(),
-                        name: name.clone(),
-                        position: position.clone(),
-                    }),
+                    // _ => Err(Error::Resolve {
+                    //     category: "type".to_string(),
+                    //     name: name.clone(),
+                    //     position: position.clone(),
+                    // }),
                 },
                 None => Err(Error::Resolve {
                     category: "type".to_string(),
@@ -165,8 +165,13 @@ impl Type {
         }
     }
 
-    pub fn all(&self) -> Vec<Expr> {
+    pub fn all(&self, problem: &Problem) -> Vec<Expr> {
         match self {
+            Type::Structure(id) => problem
+                .structure_instances(*id)
+                .iter()
+                .map(|i| Expr::Instance(*i, None))
+                .collect(),
             Type::Bool => vec![Expr::BoolValue(false, None), Expr::BoolValue(true, None)],
             Type::Interval(min, max) => (*min..*max)
                 .into_iter()

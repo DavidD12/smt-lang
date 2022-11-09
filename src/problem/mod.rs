@@ -18,8 +18,6 @@ pub mod attribute;
 pub use attribute::*;
 pub mod method;
 pub use method::*;
-pub mod argument;
-pub use argument::*;
 pub mod instance;
 pub use instance::*;
 

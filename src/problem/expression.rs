@@ -80,12 +80,13 @@ pub enum Expr {
     FunctionCall(FunctionId, Vec<Expr>, Option<Position>),
     //
     Variable(VariableId, Option<Position>),
-    Parameter(ParameterId<FunctionId>, Option<Position>),
+    FunParam(ParameterId<FunctionId>, Option<Position>),
     //
     Instance(InstanceId, Option<Position>),
     SelfExpr(StructureId, Option<Position>),
     Attribute(Box<Expr>, AttributeId, Option<Position>),
     MethodCall(Box<Expr>, MethodId, Vec<Expr>, Option<Position>),
+    MetParam(ParameterId<MethodId>, Option<Position>),
     //
     Unresolved(String, Option<Position>),
     UnresolvedFunCall(String, Vec<Expr>, Option<Position>),
@@ -103,11 +104,12 @@ impl Expr {
             Expr::BinExpr(_, _, _, p) => p,
             Expr::FunctionCall(_, _, p) => p,
             Expr::Variable(_, p) => p,
-            Expr::Parameter(_, p) => p,
+            Expr::FunParam(_, p) => p,
             Expr::Instance(_, p) => p,
             Expr::SelfExpr(_, p) => p,
             Expr::Attribute(_, _, p) => p,
             Expr::MethodCall(_, _, _, p) => p,
+            Expr::MetParam(_, p) => p,
             Expr::Unresolved(_, p) => p,
             Expr::UnresolvedFunCall(_, _, p) => p,
             Expr::UnresolvedAttribute(_, _, p) => p,
@@ -128,13 +130,14 @@ impl Expr {
                 i1 == i2 && Self::all_same(p1, p2)
             }
             (Expr::Variable(i1, _), Expr::Variable(i2, _)) => i1 == i2,
-            (Expr::Parameter(i1, _), Expr::Parameter(i2, _)) => i1 == i2,
+            (Expr::FunParam(i1, _), Expr::FunParam(i2, _)) => i1 == i2,
             (Expr::Instance(i1, _), Expr::Instance(i2, _)) => i1 == i2,
             (Expr::SelfExpr(i1, _), Expr::SelfExpr(i2, _)) => i1 == i2,
             (Expr::Attribute(_, i1, _), Expr::Attribute(_, i2, _)) => i1 == i2,
             (Expr::MethodCall(e1, i1, a1, _), Expr::MethodCall(e2, i2, a2, _)) => {
                 e1.is_same(e2) && i1 == i2 && Self::all_same(a1, a2)
             }
+            (Expr::MetParam(i1, _), Expr::MetParam(i2, _)) => i1 == i2,
             _ => false,
         }
     }
@@ -173,7 +176,7 @@ impl Expr {
             }
             //
             Expr::Variable(_, _) => Ok(self.clone()),
-            Expr::Parameter(_, _) => Ok(self.clone()),
+            Expr::FunParam(_, _) => Ok(self.clone()),
             Expr::Instance(_, _) => Ok(self.clone()),
             Expr::SelfExpr(_, _) => Ok(self.clone()),
             Expr::Attribute(e, id, pos) => {
@@ -189,18 +192,15 @@ impl Expr {
 
                 Ok(Expr::MethodCall(Box::new(e), *id, v, pos.clone()))
             }
+            Expr::MetParam(_, _) => Ok(self.clone()),
             //
             Expr::Unresolved(name, position) => match entries.get(&name) {
                 Some(entry) => match entry.typ() {
                     EntryType::Variable(id) => Ok(Self::Variable(id, position.clone())),
-                    EntryType::Parameter(id) => Ok(Self::Parameter(id, position.clone())),
+                    EntryType::FunParam(id) => Ok(Self::FunParam(id, position.clone())),
                     EntryType::Instance(id) => Ok(Expr::Instance(id, position.clone())),
                     EntryType::Self_(id) => Ok(Expr::SelfExpr(id, position.clone())),
-                    _ => Err(Error::Resolve {
-                        category: "identifier".to_string(),
-                        name: name.clone(),
-                        position: position.clone(),
-                    }),
+                    EntryType::MetParam(id) => Ok(Self::MetParam(id, position.clone())),
                 },
                 None => Err(Error::Resolve {
                     category: "identifier".to_string(),
@@ -312,10 +312,11 @@ impl Expr {
             Expr::FunctionCall(id, _, _) => problem.get(*id).unwrap().return_type(),
             Expr::Instance(id, _) => problem.get(*id).unwrap().typ(),
             Expr::Variable(id, _) => problem.get(*id).unwrap().typ(),
-            Expr::Parameter(id, _) => problem.get(*id).unwrap().typ(),
+            Expr::FunParam(id, _) => problem.get(*id).unwrap().typ(),
             Expr::SelfExpr(id, _) => Type::Structure(*id),
             Expr::Attribute(_, id, _) => problem.get(*id).unwrap().typ(),
             Expr::MethodCall(_, id, _, _) => problem.get(*id).unwrap().return_type(),
+            Expr::MetParam(id, _) => problem.get(*id).unwrap().typ(),
             Expr::Unresolved(_, _) => Type::Undefined,
             Expr::UnresolvedFunCall(_, _, _) => Type::Undefined,
             Expr::UnresolvedAttribute(_, _, _) => Type::Undefined,
@@ -382,7 +383,7 @@ impl Expr {
             }
             Expr::Instance(_, _) => Ok(()),
             Expr::Variable(_, _) => Ok(()),
-            Expr::Parameter(_, _) => Ok(()),
+            Expr::FunParam(_, _) => Ok(()),
             Expr::SelfExpr(_, _) => Ok(()),
             Expr::Attribute(e, id, _) => {
                 let et = e.typ(problem);
@@ -396,11 +397,12 @@ impl Expr {
                 let st = problem.get(*structure_id).unwrap().typ();
                 let meth = problem.get(*id).unwrap();
                 check_subtype_type(&st, e, &et)?;
-                for (p, e) in meth.arguments().iter().zip(args.iter()) {
+                for (p, e) in meth.parameters().iter().zip(args.iter()) {
                     check_subtype_type(&p.typ(), e, &e.typ(problem))?;
                 }
                 Ok(())
             }
+            Expr::MetParam(_, _) => Ok(()),
             Expr::Unresolved(_, _) => panic!(),
             Expr::UnresolvedFunCall(_, _, _) => panic!(),
             Expr::UnresolvedAttribute(_, _, _) => panic!(),
@@ -437,7 +439,7 @@ impl Expr {
             }
             Expr::Instance(_, _) => Ok(()),
             Expr::Variable(_, _) => Ok(()),
-            Expr::Parameter(_, _) => Ok(()),
+            Expr::FunParam(_, _) => Ok(()),
             Expr::SelfExpr(_, _) => Ok(()),
             Expr::Attribute(e, _, _) => e.check_parameter_size(problem),
             Expr::MethodCall(e, id, v, _) => {
@@ -446,16 +448,17 @@ impl Expr {
                     x.check_parameter_size(problem)?;
                 }
                 let meth = problem.get(*id).unwrap();
-                if meth.arguments().len() == v.len() {
+                if meth.parameters().len() == v.len() {
                     Ok(())
                 } else {
                     Err(Error::Parameter {
                         expr: self.clone(),
                         size: v.len(),
-                        expected: meth.arguments().len(),
+                        expected: meth.parameters().len(),
                     })
                 }
             }
+            Expr::MetParam(_, _) => Ok(()),
             Expr::Unresolved(_, _) => panic!(),
             Expr::UnresolvedFunCall(_, _, _) => panic!(),
             Expr::UnresolvedAttribute(_, _, _) => panic!(),
@@ -485,7 +488,7 @@ impl Expr {
                 }
                 Expr::Instance(_, _) => self.clone(),
                 Expr::Variable(_, _) => self.clone(),
-                Expr::Parameter(_, _) => self.clone(),
+                Expr::FunParam(_, _) => self.clone(),
                 Expr::SelfExpr(_, _) => self.clone(),
                 Expr::Attribute(e, id, pos) => {
                     Expr::Attribute(Box::new(e.substitute(old, expr)), *id, pos.clone())
@@ -495,6 +498,7 @@ impl Expr {
                     let args = args.iter().map(|a| a.substitute(old, expr)).collect();
                     Expr::MethodCall(Box::new(e), *id, args, pos.clone())
                 }
+                Expr::MetParam(_, _) => self.clone(),
                 Expr::Unresolved(_, _) => self.clone(),
                 Expr::UnresolvedFunCall(_, _, _) => panic!(),
                 Expr::UnresolvedAttribute(_, _, _) => panic!(),
@@ -593,7 +597,7 @@ impl ToLang for Expr {
             }
             Expr::Instance(id, _) => problem.get(*id).unwrap().name().into(),
             Expr::Variable(id, _) => problem.get(*id).unwrap().name().into(),
-            Expr::Parameter(id, _) => problem.get(*id).unwrap().name().into(),
+            Expr::FunParam(id, _) => problem.get(*id).unwrap().name().into(),
             Expr::SelfExpr(_, _) => "self".to_string(),
             Expr::Attribute(e, id, _) => {
                 format!(
@@ -614,6 +618,7 @@ impl ToLang for Expr {
                 s.push_str(")");
                 s
             }
+            Expr::MetParam(id, _) => problem.get(*id).unwrap().name().into(),
             Expr::Unresolved(name, _) => format!("{}?", name),
             Expr::UnresolvedFunCall(name, params, _) => {
                 let mut s = format!("{}?(", name);

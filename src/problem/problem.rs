@@ -390,6 +390,16 @@ impl GetFromId<MethodId, Method> for Problem {
         }
     }
 }
+impl GetFromId<ParameterId<MethodId>, Parameter<MethodId>> for Problem {
+    fn get(&self, id: ParameterId<MethodId>) -> Option<&Parameter<MethodId>> {
+        let ParameterId(method_id, _) = id;
+        if let Some(method) = self.get(method_id) {
+            method.get(id)
+        } else {
+            None
+        }
+    }
+}
 
 impl GetFromId<InstanceId, Instance> for Problem {
     fn get(&self, id: InstanceId) -> Option<&Instance> {

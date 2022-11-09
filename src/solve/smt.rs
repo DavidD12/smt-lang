@@ -13,6 +13,7 @@ pub struct Smt<'a> {
     structure_sort: HashMap<StructureId, z3::Sort<'a>>,
     instances: HashMap<InstanceId, z3::ast::Datatype<'a>>,
     attributes: HashMap<AttributeId, z3::FuncDecl<'a>>,
+    methods: HashMap<MethodId, z3::FuncDecl<'a>>,
     // Variable
     bool_variables: HashMap<VariableId, z3::ast::Bool<'a>>,
     int_variables: HashMap<VariableId, z3::ast::Int<'a>>,
@@ -39,6 +40,7 @@ impl<'a> Smt<'a> {
             structure_sort: HashMap::new(),
             instances: HashMap::new(),
             attributes: HashMap::new(),
+            methods: HashMap::new(),
             bool_variables: HashMap::new(),
             int_variables: HashMap::new(),
             real_variables: HashMap::new(),
@@ -93,7 +95,20 @@ impl<'a> Smt<'a> {
             self.attributes.insert(attribute.id(), fun);
         }
         // Method
-        // TODO
+        for method in structure.methods().iter() {
+            let sort = self.structure_sort(structure.id());
+            let name = format!("_{}__{}", structure.name(), method.name());
+            let params = method
+                .parameters()
+                .iter()
+                .map(|p| self.to_sort(&p.typ()))
+                .collect::<Vec<_>>();
+            let mut v = Vec::new();
+            v.push(sort);
+            v.extend(params.iter());
+            let met = z3::FuncDecl::new(self.ctx, name, &v, &self.to_sort(&method.return_type()));
+            self.methods.insert(method.id(), met);
+        }
     }
 
     fn declare_structures(&mut self) {
@@ -107,9 +122,11 @@ impl<'a> Smt<'a> {
         for attribute in structure.attributes().iter() {
             if let Some(expr) = attribute.expr() {
                 for instance in self.problem.structure_instances(structure.id()) {
+                    // Self
                     let self_expr = Expr::SelfExpr(structure.id(), None);
                     let inst_expr = Expr::Instance(instance, None);
                     let expr = expr.substitute(&self_expr, &inst_expr);
+                    //
                     let att_expr = Expr::Attribute(Box::new(inst_expr), attribute.id(), None);
                     let ass = Expr::BinExpr(Box::new(att_expr), BinOp::Eq, Box::new(expr), None);
                     self.solver.assert(&self.to_bool(&ass));
@@ -117,7 +134,49 @@ impl<'a> Smt<'a> {
             }
         }
         // Method
-        // TODO
+        for method in structure.methods().iter() {
+            if let Some(expr) = method.expr() {
+                for instance in self.problem.structure_instances(structure.id()) {
+                    // Self
+                    let self_expr = Expr::SelfExpr(structure.id(), None);
+                    let inst_expr = Expr::Instance(instance, None);
+                    let expr = expr.substitute(&self_expr, &inst_expr.clone());
+                    //
+                    let params_all = method
+                        .parameters()
+                        .iter()
+                        .map(|p| p.typ().all(self.problem))
+                        .collect();
+                    let param_expr = method
+                        .parameters()
+                        .iter()
+                        .map(|p| Expr::MetParam(p.id(), p.position().clone()))
+                        .collect::<Vec<_>>();
+                    let mut combine = Combine::new(params_all);
+                    loop {
+                        let values = combine.values();
+                        let all = param_expr
+                            .clone()
+                            .into_iter()
+                            .zip(values.clone())
+                            .collect::<Vec<_>>();
+                        let e = expr.substitute_all(all);
+                        let call = Expr::MethodCall(
+                            Box::new(inst_expr.clone()),
+                            method.id(),
+                            values,
+                            None,
+                        );
+                        let cond = Expr::BinExpr(Box::new(call), BinOp::Eq, Box::new(e), None);
+                        self.solver.assert(&self.to_bool(&cond));
+                        //
+                        if !combine.step() {
+                            break;
+                        }
+                    }
+                }
+            }
+        }
     }
 
     fn define_structures(&mut self) {
@@ -228,12 +287,12 @@ impl<'a> Smt<'a> {
             let params_all = function
                 .parameters()
                 .iter()
-                .map(|p| p.typ().all())
+                .map(|p| p.typ().all(self.problem))
                 .collect();
             let param_expr = function
                 .parameters()
                 .iter()
-                .map(|p| Expr::Parameter(p.id(), p.position().clone()))
+                .map(|p| Expr::FunParam(p.id(), p.position().clone()))
                 .collect::<Vec<_>>();
             let mut combine = Combine::new(params_all);
             loop {
@@ -245,21 +304,9 @@ impl<'a> Smt<'a> {
                     .collect::<Vec<_>>();
                 let e = expr.substitute_all(all);
                 let call = Expr::FunctionCall(function.id(), values, None);
-                if function.return_type().is_bool() {
-                    let call = self.to_bool(&call);
-                    let e = self.to_bool(&e);
-                    self.solver.assert(&call._eq(&e));
-                } else if function.return_type().is_integer() {
-                    let call = self.to_int(&call);
-                    let e = self.to_int(&e);
-                    self.solver.assert(&call._eq(&e));
-                } else if function.return_type().is_real() {
-                    let call = self.to_real(&call);
-                    let e = self.to_real(&e);
-                    self.solver.assert(&call._eq(&e));
-                } else {
-                    panic!()
-                }
+                let cond = Expr::BinExpr(Box::new(call), BinOp::Eq, Box::new(e), None);
+                self.solver.assert(&self.to_bool(&cond));
+                //
                 if !combine.step() {
                     break;
                 }
@@ -323,6 +370,9 @@ impl<'a> Smt<'a> {
         } else if t.is_real() {
             let x = self.to_real(expr);
             z3::ast::Dynamic::new(self.ctx, x.get_z3_ast())
+        } else if t.is_structure() {
+            let x = self.to_datatype(expr);
+            z3::ast::Dynamic::new(self.ctx, x.get_z3_ast())
         } else {
             panic!()
         }
@@ -339,6 +389,18 @@ impl<'a> Smt<'a> {
             .map(|p| p as &dyn z3::ast::Ast)
             .collect::<Vec<_>>();
         fun.apply(&params)
+    }
+
+    fn met_call(&self, expr: &Expr, id: MethodId, parameters: &Vec<Expr>) -> z3::ast::Dynamic<'a> {
+        let meth = self.methods.get(&id).unwrap();
+        let mut params = Vec::new();
+        params.push(self.to_dynamic(expr));
+        params.extend(parameters.iter().map(|p| self.to_dynamic(p)));
+        let params = params
+            .iter()
+            .map(|p| p as &dyn z3::ast::Ast)
+            .collect::<Vec<_>>();
+        meth.apply(&params)
     }
 
     pub fn to_bool(&self, expr: &Expr) -> z3::ast::Bool<'a> {
@@ -409,6 +471,9 @@ impl<'a> Smt<'a> {
             Expr::FunctionCall(id, parameters, _) => {
                 self.fun_call(*id, parameters).as_bool().unwrap()
             }
+            Expr::MethodCall(e, id, parameters, _) => {
+                self.met_call(e, *id, parameters).as_bool().unwrap()
+            }
             _ => panic!("to_bool {:?}", expr),
         }
     }
@@ -445,6 +510,9 @@ impl<'a> Smt<'a> {
             }
             Expr::FunctionCall(id, parameters, _) => {
                 self.fun_call(*id, parameters).as_int().unwrap()
+            }
+            Expr::MethodCall(e, id, parameters, _) => {
+                self.met_call(e, *id, parameters).as_int().unwrap()
             }
             _ => panic!("to_int {:?}", expr),
         }
@@ -496,6 +564,9 @@ impl<'a> Smt<'a> {
             Expr::FunctionCall(id, parameters, _) => {
                 self.fun_call(*id, parameters).as_real().unwrap()
             }
+            Expr::MethodCall(e, id, parameters, _) => {
+                self.met_call(e, *id, parameters).as_real().unwrap()
+            }
             _ => panic!("to_real {:?}", expr),
         }
     }
@@ -512,7 +583,9 @@ impl<'a> Smt<'a> {
                 let e = self.to_datatype(e);
                 fun.apply(&[&e]).as_datatype().unwrap()
             }
-            Expr::MethodCall(_, _, _, _) => todo!(), // TODO
+            Expr::MethodCall(e, id, parameters, _) => {
+                self.met_call(e, *id, parameters).as_datatype().unwrap()
+            }
             _ => panic!("to_datatype {:?}", expr),
         }
     }

@@ -78,30 +78,30 @@ Attribute: Attribute = <i:Identifier> ":" <t:Type> <e:Assign?> => {
 
 //------------------------- Method -------------------------
 
-Method: Method = <i:Identifier> "(" <args:Arguments> ")" ":" <t:Type> <e:Assign?> => {
+Method: Method = <i:Identifier> "(" <p:MetParameters> ")" ":" <t:Type> <e:Assign?> => {
     let position = Some(i.position.clone());
     let mut m = Method::new(i.name, t, e, position);
-    for x in args {
-        m.add_argument(x);
+    for x in p {
+        m.add_parameter(x);
     }
     m
 };   
 
-//------------------------- Argument -------------------------
+//------------------------- Method Parameter -------------------------
 
-Argument: Argument = <i:Identifier> ":" <t:Type> => {
+MetParameter: Parameter<MethodId> = <i:Identifier> ":" <t:Type> => {
     let position = Some(i.position.clone());
-    Argument::new(i.name, t, position)
+    Parameter::new(i.name, t, position)
 };
 
-Arguments: Vec<Argument> = <a:Argument> <l:ArgumentNext*> => {
-    let mut args = Vec::new();
-    args.push(a);
-    args.extend(l);
-    args
+MetParameters: Vec<Parameter<MethodId>> = <p:MetParameter> <l:MetParameterNext*> => {
+    let mut parameters = Vec::new();
+    parameters.push(p);
+    parameters.extend(l);
+    parameters
 };
 
-ArgumentNext: Argument = "," <a:Argument> => a;
+MetParameterNext: Parameter<MethodId> = "," <p:MetParameter> => p;
 
 //------------------------- Variable -------------------------
 
