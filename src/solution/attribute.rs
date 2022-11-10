@@ -4,15 +4,20 @@ use crate::solve::Smt;
 
 //-------------------------------------------------- Attribute Value --------------------------------------------------
 
-pub struct AttributeValue {
-    id: AttributeId,
+pub struct AttributeValue<T: Id> {
+    id: AttributeId<T>,
     value: Value,
 }
 
-impl AttributeValue {
-    pub fn new(smt: &Smt, model: &z3::Model, instance: InstanceId, attribute: AttributeId) -> Self {
-        let e = Expr::Instance(instance, None);
-        let expr = Expr::Attribute(Box::new(e), attribute, None);
+impl AttributeValue<StructureId> {
+    pub fn new(
+        smt: &Smt,
+        model: &z3::Model,
+        instance: InstanceId,
+        attribute: AttributeId<StructureId>,
+    ) -> Self {
+        let e = Expr::StrucInstance(instance, None);
+        let expr = Expr::StrucAttribute(Box::new(e), attribute, None);
         let value = Value::new(smt, model, &expr);
         Self {
             id: attribute,
@@ -21,7 +26,7 @@ impl AttributeValue {
     }
 }
 
-impl ToLang for AttributeValue {
+impl ToLang for AttributeValue<StructureId> {
     fn to_lang(&self, problem: &Problem) -> String {
         let attribute = problem.get(self.id).unwrap();
         format!(

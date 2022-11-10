@@ -2,8 +2,8 @@ use super::*;
 use crate::parser::Position;
 
 pub enum StructureElement {
-    Attribute(Attribute),
-    Method(Method),
+    Attribute(Attribute<StructureId>),
+    Method(Method<StructureId>),
 }
 
 //------------------------- Id -------------------------
@@ -23,8 +23,8 @@ impl Id for StructureId {
 pub struct Structure {
     id: StructureId,
     name: String,
-    attributes: Vec<Attribute>,
-    methods: Vec<Method>,
+    attributes: Vec<Attribute<StructureId>>,
+    methods: Vec<Method<StructureId>>,
     position: Option<Position>,
 }
 
@@ -43,14 +43,17 @@ impl Structure {
 
     //---------- Attribute ----------
 
-    pub fn add_attribute(&mut self, mut attribute: Attribute) -> AttributeId {
+    pub fn add_attribute(
+        &mut self,
+        mut attribute: Attribute<StructureId>,
+    ) -> AttributeId<StructureId> {
         let id = AttributeId(self.id(), self.attributes.len());
         attribute.set_id(id);
         self.attributes.push(attribute);
         id
     }
 
-    pub fn get_attribute(&self, id: AttributeId) -> Option<&Attribute> {
+    pub fn get_attribute(&self, id: AttributeId<StructureId>) -> Option<&Attribute<StructureId>> {
         let AttributeId(structure_id, n) = id;
         if self.id != structure_id {
             None
@@ -59,24 +62,24 @@ impl Structure {
         }
     }
 
-    pub fn attributes(&self) -> &Vec<Attribute> {
+    pub fn attributes(&self) -> &Vec<Attribute<StructureId>> {
         &self.attributes
     }
 
-    pub fn find_attribute(&self, name: &str) -> Option<&Attribute> {
+    pub fn find_attribute(&self, name: &str) -> Option<&Attribute<StructureId>> {
         self.attributes.iter().find(|x| x.name() == name)
     }
 
     //---------- Method ----------
 
-    pub fn add_method(&mut self, mut method: Method) -> MethodId {
+    pub fn add_method(&mut self, mut method: Method<StructureId>) -> MethodId<StructureId> {
         let id = MethodId(self.id(), self.methods.len());
         method.set_id(id);
         self.methods.push(method);
         id
     }
 
-    pub fn get_method(&self, id: MethodId) -> Option<&Method> {
+    pub fn get_method(&self, id: MethodId<StructureId>) -> Option<&Method<StructureId>> {
         let MethodId(structure_id, n) = id;
         if self.id != structure_id {
             None
@@ -85,11 +88,11 @@ impl Structure {
         }
     }
 
-    pub fn methods(&self) -> &Vec<Method> {
+    pub fn methods(&self) -> &Vec<Method<StructureId>> {
         &self.methods
     }
 
-    pub fn find_method(&self, name: &str) -> Option<&Method> {
+    pub fn find_method(&self, name: &str) -> Option<&Method<StructureId>> {
         self.methods.iter().find(|x| x.name() == name)
     }
 
@@ -197,6 +200,14 @@ impl Structure {
     }
 }
 
+//------------------------- Postion -------------------------
+
+impl WithPosition for Structure {
+    fn position(&self) -> &Option<Position> {
+        &self.position
+    }
+}
+
 //------------------------- Named -------------------------
 
 impl Named<StructureId> for Structure {
@@ -210,10 +221,6 @@ impl Named<StructureId> for Structure {
 
     fn name(&self) -> &str {
         &self.name
-    }
-
-    fn position(&self) -> &Option<Position> {
-        &self.position
     }
 }
 
@@ -238,14 +245,14 @@ impl ToLang for Structure {
 
 //------------------------- Get From Id -------------------------
 
-impl GetFromId<AttributeId, Attribute> for Structure {
-    fn get(&self, id: AttributeId) -> Option<&Attribute> {
+impl GetFromId<AttributeId<StructureId>, Attribute<StructureId>> for Structure {
+    fn get(&self, id: AttributeId<StructureId>) -> Option<&Attribute<StructureId>> {
         self.get_attribute(id)
     }
 }
 
-impl GetFromId<MethodId, Method> for Structure {
-    fn get(&self, id: MethodId) -> Option<&Method> {
+impl GetFromId<MethodId<StructureId>, Method<StructureId>> for Structure {
+    fn get(&self, id: MethodId<StructureId>) -> Option<&Method<StructureId>> {
         self.get_method(id)
     }
 }

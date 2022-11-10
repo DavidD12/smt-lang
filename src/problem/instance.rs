@@ -101,6 +101,14 @@ impl Instance {
     }
 }
 
+//------------------------- Postion -------------------------
+
+impl WithPosition for Instance {
+    fn position(&self) -> &Option<Position> {
+        &self.position
+    }
+}
+
 //------------------------- Named -------------------------
 
 impl Named<InstanceId> for Instance {
@@ -114,10 +122,6 @@ impl Named<InstanceId> for Instance {
 
     fn name(&self) -> &str {
         &self.name
-    }
-
-    fn position(&self) -> &Option<Position> {
-        &self.position
     }
 }
 

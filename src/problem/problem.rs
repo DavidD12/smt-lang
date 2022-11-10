@@ -370,8 +370,8 @@ impl GetFromId<StructureId, Structure> for Problem {
         self.get_structure(id)
     }
 }
-impl GetFromId<AttributeId, Attribute> for Problem {
-    fn get(&self, id: AttributeId) -> Option<&Attribute> {
+impl GetFromId<AttributeId<StructureId>, Attribute<StructureId>> for Problem {
+    fn get(&self, id: AttributeId<StructureId>) -> Option<&Attribute<StructureId>> {
         let AttributeId(structure_id, _) = id;
         if let Some(structure) = self.get(structure_id) {
             structure.get(id)
@@ -380,8 +380,8 @@ impl GetFromId<AttributeId, Attribute> for Problem {
         }
     }
 }
-impl GetFromId<MethodId, Method> for Problem {
-    fn get(&self, id: MethodId) -> Option<&Method> {
+impl GetFromId<MethodId<StructureId>, Method<StructureId>> for Problem {
+    fn get(&self, id: MethodId<StructureId>) -> Option<&Method<StructureId>> {
         let MethodId(structure_id, _) = id;
         if let Some(structure) = self.get(structure_id) {
             structure.get(id)
@@ -390,8 +390,11 @@ impl GetFromId<MethodId, Method> for Problem {
         }
     }
 }
-impl GetFromId<ParameterId<MethodId>, Parameter<MethodId>> for Problem {
-    fn get(&self, id: ParameterId<MethodId>) -> Option<&Parameter<MethodId>> {
+impl GetFromId<ParameterId<MethodId<StructureId>>, Parameter<MethodId<StructureId>>> for Problem {
+    fn get(
+        &self,
+        id: ParameterId<MethodId<StructureId>>,
+    ) -> Option<&Parameter<MethodId<StructureId>>> {
         let ParameterId(method_id, _) = id;
         if let Some(method) = self.get(method_id) {
             method.get(id)

@@ -10,10 +10,10 @@ pub struct Smt<'a> {
     ctx: &'a z3::Context,
     solver: &'a z3::Solver<'a>,
     // Structure
-    structure_sort: HashMap<StructureId, z3::Sort<'a>>,
-    instances: HashMap<InstanceId, z3::ast::Datatype<'a>>,
-    attributes: HashMap<AttributeId, z3::FuncDecl<'a>>,
-    methods: HashMap<MethodId, z3::FuncDecl<'a>>,
+    stru_sort: HashMap<StructureId, z3::Sort<'a>>,
+    stru_instances: HashMap<InstanceId, z3::ast::Datatype<'a>>,
+    stru_attributes: HashMap<AttributeId<StructureId>, z3::FuncDecl<'a>>,
+    stru_methods: HashMap<MethodId<StructureId>, z3::FuncDecl<'a>>,
     // Variable
     bool_variables: HashMap<VariableId, z3::ast::Bool<'a>>,
     int_variables: HashMap<VariableId, z3::ast::Int<'a>>,
@@ -37,10 +37,10 @@ impl<'a> Smt<'a> {
             _cfg: cfg,
             ctx,
             solver,
-            structure_sort: HashMap::new(),
-            instances: HashMap::new(),
-            attributes: HashMap::new(),
-            methods: HashMap::new(),
+            stru_sort: HashMap::new(),
+            stru_instances: HashMap::new(),
+            stru_attributes: HashMap::new(),
+            stru_methods: HashMap::new(),
             bool_variables: HashMap::new(),
             int_variables: HashMap::new(),
             real_variables: HashMap::new(),
@@ -64,7 +64,7 @@ impl<'a> Smt<'a> {
             Type::Int => z3::Sort::int(self.ctx),
             Type::Real => z3::Sort::real(self.ctx),
             Type::Interval(_, _) => z3::Sort::int(self.ctx),
-            Type::Structure(id) => self.structure_sort.get(id).unwrap().clone(),
+            Type::Structure(id) => self.stru_sort.get(id).unwrap().clone(),
             Type::Unresolved(_, _) => panic!(),
             Type::Undefined => panic!(),
         }
@@ -81,18 +81,18 @@ impl<'a> Smt<'a> {
         let (sort, consts, _testers) =
             z3::Sort::enumeration(self.ctx, structure.name().into(), &names);
         // Sort
-        self.structure_sort.insert(structure.id(), sort);
+        self.stru_sort.insert(structure.id(), sort);
         // Instance
         for (id, f) in instances.iter().zip(consts.into_iter()) {
-            self.instances
+            self.stru_instances
                 .insert(*id, f.apply(&[]).as_datatype().unwrap());
         }
         // Attribute
         for attribute in structure.attributes().iter() {
             let sort = self.structure_sort(structure.id());
             let name = format!("_{}__{}", structure.name(), attribute.name());
-            let fun = z3::FuncDecl::new(self.ctx, name, &[sort], &self.to_sort(&attribute.typ()));
-            self.attributes.insert(attribute.id(), fun);
+            let fun = z3::FuncDecl::new(self.ctx, name, &[sort], &self.to_sort(attribute.typ()));
+            self.stru_attributes.insert(attribute.id(), fun);
         }
         // Method
         for method in structure.methods().iter() {
@@ -106,8 +106,8 @@ impl<'a> Smt<'a> {
             let mut v = Vec::new();
             v.push(sort);
             v.extend(params.iter());
-            let met = z3::FuncDecl::new(self.ctx, name, &v, &self.to_sort(&method.return_type()));
-            self.methods.insert(method.id(), met);
+            let met = z3::FuncDecl::new(self.ctx, name, &v, &self.to_sort(method.typ()));
+            self.stru_methods.insert(method.id(), met);
         }
     }
 
@@ -123,12 +123,12 @@ impl<'a> Smt<'a> {
             if let Some(expr) = attribute.expr() {
                 for instance in self.problem.structure_instances(structure.id()) {
                     // Self
-                    let self_expr = Expr::SelfExpr(structure.id(), None);
-                    let inst_expr = Expr::Instance(instance, None);
+                    let self_expr = Expr::StrucSelf(structure.id(), None);
+                    let inst_expr = Expr::StrucInstance(instance, None);
                     let expr = expr.substitute(&self_expr, &inst_expr);
                     //
-                    let att_expr = Expr::Attribute(Box::new(inst_expr), attribute.id(), None);
-                    let ass = Expr::BinExpr(Box::new(att_expr), BinOp::Eq, Box::new(expr), None);
+                    let att_expr = Expr::StrucAttribute(Box::new(inst_expr), attribute.id(), None);
+                    let ass = Expr::Binary(Box::new(att_expr), BinOp::Eq, Box::new(expr), None);
                     self.solver.assert(&self.to_bool(&ass));
                 }
             }
@@ -138,8 +138,8 @@ impl<'a> Smt<'a> {
             if let Some(expr) = method.expr() {
                 for instance in self.problem.structure_instances(structure.id()) {
                     // Self
-                    let self_expr = Expr::SelfExpr(structure.id(), None);
-                    let inst_expr = Expr::Instance(instance, None);
+                    let self_expr = Expr::StrucSelf(structure.id(), None);
+                    let inst_expr = Expr::StrucInstance(instance, None);
                     let expr = expr.substitute(&self_expr, &inst_expr.clone());
                     //
                     let params_all = method
@@ -150,7 +150,7 @@ impl<'a> Smt<'a> {
                     let param_expr = method
                         .parameters()
                         .iter()
-                        .map(|p| Expr::MetParam(p.id(), p.position().clone()))
+                        .map(|p| Expr::StrucMetParam(p.id(), p.position().clone()))
                         .collect::<Vec<_>>();
                     let mut combine = Combine::new(params_all);
                     loop {
@@ -161,13 +161,13 @@ impl<'a> Smt<'a> {
                             .zip(values.clone())
                             .collect::<Vec<_>>();
                         let e = expr.substitute_all(all);
-                        let call = Expr::MethodCall(
+                        let call = Expr::StrucMetCall(
                             Box::new(inst_expr.clone()),
                             method.id(),
                             values,
                             None,
                         );
-                        let cond = Expr::BinExpr(Box::new(call), BinOp::Eq, Box::new(e), None);
+                        let cond = Expr::Binary(Box::new(call), BinOp::Eq, Box::new(e), None);
                         self.solver.assert(&self.to_bool(&cond));
                         //
                         if !combine.step() {
@@ -186,11 +186,11 @@ impl<'a> Smt<'a> {
     }
 
     fn structure_sort(&self, id: StructureId) -> &z3::Sort<'a> {
-        &self.structure_sort[&id]
+        &self.stru_sort[&id]
     }
 
     pub fn instance(&self, id: InstanceId) -> &z3::ast::Datatype<'a> {
-        &self.instances[&id]
+        &self.stru_instances[&id]
     }
 
     //------------------------- Variable -------------------------
@@ -214,12 +214,12 @@ impl<'a> Smt<'a> {
                 self.int_variables.insert(variable.id(), v);
                 let v = self.int_variable(variable.id());
                 self.solver
-                    .assert(&v.ge(&z3::ast::Int::from_i64(self.ctx, min as i64)));
+                    .assert(&v.ge(&z3::ast::Int::from_i64(self.ctx, *min as i64)));
                 self.solver
-                    .assert(&v.le(&z3::ast::Int::from_i64(self.ctx, max as i64)));
+                    .assert(&v.le(&z3::ast::Int::from_i64(self.ctx, *max as i64)));
             }
             Type::Structure(id) => {
-                let sort = self.structure_sort.get(&id).unwrap();
+                let sort = self.stru_sort.get(&id).unwrap();
                 let v = z3::ast::Datatype::new_const(self.ctx, variable.name(), sort);
                 self.datatype_variables.insert(variable.id(), v);
             }
@@ -231,7 +231,7 @@ impl<'a> Smt<'a> {
     fn define_variable(&mut self, variable: &Variable) {
         if let Some(expr) = variable.expr() {
             let v = Expr::Variable(variable.id(), None);
-            let e = &Expr::BinExpr(Box::new(v), BinOp::Eq, Box::new(expr.clone()), None);
+            let e = &Expr::Binary(Box::new(v), BinOp::Eq, Box::new(expr.clone()), None);
             self.solver.assert(&self.to_bool(&e));
         }
     }
@@ -270,14 +270,14 @@ impl<'a> Smt<'a> {
         let params = function
             .parameters()
             .iter()
-            .map(|p| self.to_sort(&p.typ()))
+            .map(|p| self.to_sort(p.typ()))
             .collect::<Vec<_>>();
         let params = params.iter().collect::<Vec<_>>();
         let fun = z3::FuncDecl::new(
             self.ctx,
             function.name(),
             &params,
-            &self.to_sort(&function.return_type()),
+            &self.to_sort(function.typ()),
         );
         self.functions.insert(function.id(), fun);
     }
@@ -304,7 +304,7 @@ impl<'a> Smt<'a> {
                     .collect::<Vec<_>>();
                 let e = expr.substitute_all(all);
                 let call = Expr::FunctionCall(function.id(), values, None);
-                let cond = Expr::BinExpr(Box::new(call), BinOp::Eq, Box::new(e), None);
+                let cond = Expr::Binary(Box::new(call), BinOp::Eq, Box::new(e), None);
                 self.solver.assert(&self.to_bool(&cond));
                 //
                 if !combine.step() {
@@ -391,8 +391,13 @@ impl<'a> Smt<'a> {
         fun.apply(&params)
     }
 
-    fn met_call(&self, expr: &Expr, id: MethodId, parameters: &Vec<Expr>) -> z3::ast::Dynamic<'a> {
-        let meth = self.methods.get(&id).unwrap();
+    fn struc_met_call(
+        &self,
+        expr: &Expr,
+        id: MethodId<StructureId>,
+        parameters: &Vec<Expr>,
+    ) -> z3::ast::Dynamic<'a> {
+        let meth = self.stru_methods.get(&id).unwrap();
         let mut params = Vec::new();
         params.push(self.to_dynamic(expr));
         params.extend(parameters.iter().map(|p| self.to_dynamic(p)));
@@ -406,14 +411,14 @@ impl<'a> Smt<'a> {
     pub fn to_bool(&self, expr: &Expr) -> z3::ast::Bool<'a> {
         match expr {
             Expr::BoolValue(value, _) => z3::ast::Bool::from_bool(self.ctx, *value),
-            Expr::PreExpr(op, e, _) => match op {
+            Expr::Prefix(op, e, _) => match op {
                 PreOp::Not => {
                     let e = self.to_bool(e);
                     z3::ast::Bool::not(&e)
                 }
                 _ => panic!(),
             },
-            Expr::BinExpr(l, op, r, _) => {
+            Expr::Binary(l, op, r, _) => {
                 let t = &l.typ(self.problem);
                 if t.is_bool() {
                     let l = self.to_bool(l);
@@ -463,16 +468,16 @@ impl<'a> Smt<'a> {
                 }
             }
             Expr::Variable(id, _) => self.bool_variable(*id).clone(),
-            Expr::Attribute(e, id, _) => {
-                let fun = self.attributes.get(&id).unwrap();
+            Expr::StrucAttribute(e, id, _) => {
+                let fun = self.stru_attributes.get(&id).unwrap();
                 let e = self.to_datatype(e);
                 fun.apply(&[&e]).as_bool().unwrap()
             }
             Expr::FunctionCall(id, parameters, _) => {
                 self.fun_call(*id, parameters).as_bool().unwrap()
             }
-            Expr::MethodCall(e, id, parameters, _) => {
-                self.met_call(e, *id, parameters).as_bool().unwrap()
+            Expr::StrucMetCall(e, id, parameters, _) => {
+                self.struc_met_call(e, *id, parameters).as_bool().unwrap()
             }
             _ => panic!("to_bool {:?}", expr),
         }
@@ -481,14 +486,14 @@ impl<'a> Smt<'a> {
     pub fn to_int(&self, expr: &Expr) -> z3::ast::Int<'a> {
         match expr {
             Expr::IntValue(value, _) => z3::ast::Int::from_i64(self.ctx, *value as i64),
-            Expr::PreExpr(op, e, _) => match op {
+            Expr::Prefix(op, e, _) => match op {
                 PreOp::Minus => {
                     let e = self.to_int(&e);
                     e.unary_minus()
                 }
                 _ => panic!(),
             },
-            Expr::BinExpr(l, op, r, _) => {
+            Expr::Binary(l, op, r, _) => {
                 if l.typ(self.problem).is_integer() {
                     let l = self.to_int(l);
                     let r = self.to_int(r);
@@ -503,16 +508,16 @@ impl<'a> Smt<'a> {
                 }
             }
             Expr::Variable(id, _) => self.int_variable(*id).clone(),
-            Expr::Attribute(e, id, _) => {
-                let fun = self.attributes.get(&id).unwrap();
+            Expr::StrucAttribute(e, id, _) => {
+                let fun = self.stru_attributes.get(&id).unwrap();
                 let e = self.to_datatype(e);
                 fun.apply(&[&e]).as_int().unwrap()
             }
             Expr::FunctionCall(id, parameters, _) => {
                 self.fun_call(*id, parameters).as_int().unwrap()
             }
-            Expr::MethodCall(e, id, parameters, _) => {
-                self.met_call(e, *id, parameters).as_int().unwrap()
+            Expr::StrucMetCall(e, id, parameters, _) => {
+                self.struc_met_call(e, *id, parameters).as_int().unwrap()
             }
             _ => panic!("to_int {:?}", expr),
         }
@@ -525,14 +530,14 @@ impl<'a> Smt<'a> {
                 *value.numer().unwrap() as i32,
                 *value.denom().unwrap() as i32,
             ),
-            Expr::PreExpr(op, e, _) => match op {
+            Expr::Prefix(op, e, _) => match op {
                 PreOp::Minus => {
                     let e = self.to_real(&e);
                     e.unary_minus()
                 }
                 _ => panic!(),
             },
-            Expr::BinExpr(l, op, r, _) => {
+            Expr::Binary(l, op, r, _) => {
                 let t = &l.typ(self.problem);
                 if t.is_integer() {
                     let l = z3::ast::Real::from_int(&self.to_int(l));
@@ -556,16 +561,16 @@ impl<'a> Smt<'a> {
                 }
             }
             Expr::Variable(id, _) => self.real_variable(*id).clone(),
-            Expr::Attribute(e, id, _) => {
-                let fun = self.attributes.get(&id).unwrap();
+            Expr::StrucAttribute(e, id, _) => {
+                let fun = self.stru_attributes.get(&id).unwrap();
                 let e = self.to_datatype(e);
                 fun.apply(&[&e]).as_real().unwrap()
             }
             Expr::FunctionCall(id, parameters, _) => {
                 self.fun_call(*id, parameters).as_real().unwrap()
             }
-            Expr::MethodCall(e, id, parameters, _) => {
-                self.met_call(e, *id, parameters).as_real().unwrap()
+            Expr::StrucMetCall(e, id, parameters, _) => {
+                self.struc_met_call(e, *id, parameters).as_real().unwrap()
             }
             _ => panic!("to_real {:?}", expr),
         }
@@ -576,16 +581,17 @@ impl<'a> Smt<'a> {
             Expr::FunctionCall(id, parameters, _) => {
                 self.fun_call(*id, parameters).as_datatype().unwrap()
             }
-            Expr::Instance(id, _) => self.instance(*id).clone(),
+            Expr::StrucInstance(id, _) => self.instance(*id).clone(),
             Expr::Variable(id, _) => self.datatype_variable(*id).clone(),
-            Expr::Attribute(e, id, _) => {
-                let fun = self.attributes.get(&id).unwrap();
+            Expr::StrucAttribute(e, id, _) => {
+                let fun = self.stru_attributes.get(&id).unwrap();
                 let e = self.to_datatype(e);
                 fun.apply(&[&e]).as_datatype().unwrap()
             }
-            Expr::MethodCall(e, id, parameters, _) => {
-                self.met_call(e, *id, parameters).as_datatype().unwrap()
-            }
+            Expr::StrucMetCall(e, id, parameters, _) => self
+                .struc_met_call(e, *id, parameters)
+                .as_datatype()
+                .unwrap(),
             _ => panic!("to_datatype {:?}", expr),
         }
     }

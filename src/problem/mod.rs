@@ -32,6 +32,78 @@ pub use entry::*;
 pub mod type_entry;
 pub use type_entry::*;
 
+//------------------------- With Type -------------------------
+
+pub trait WithType: WithPosition {
+    fn typ(&self) -> &Type;
+    fn set_type(&mut self, typ: Type);
+
+    //---------- Resolve ----------
+
+    fn resolve_type_children(&mut self, entries: &TypeEntries) -> Result<(), Error>;
+
+    fn resolve_type(&mut self, entries: &TypeEntries) -> Result<(), Error> {
+        self.set_type(self.typ().resolve_type(entries)?);
+        self.resolve_type_children(entries)
+    }
+
+    //---------- Interval ----------
+
+    fn check_interval_children(&self, problem: &Problem) -> Result<(), Error>;
+
+    fn check_interval(&self, problem: &Problem) -> Result<(), Error> {
+        self.typ().check_interval(problem, self.position())?;
+        self.check_interval_children(problem)
+    }
+}
+
+//------------------------- With Expr -------------------------
+
+pub trait WithPosition {
+    fn position(&self) -> &Option<Position>;
+}
+
+pub trait WithExpr: Sized + WithPosition + WithType {
+    fn expr(&self) -> &Option<Expr>;
+    fn clear_expr(&mut self);
+
+    fn new_expr(&self, expr: Option<Expr>) -> Self;
+
+    //---------- Resolve ----------
+
+    fn entries(&self) -> Entries;
+
+    fn resolve_expr(&self, problem: &Problem, entries: &Entries) -> Result<Self, Error> {
+        let expr = if let Some(e) = &self.expr() {
+            let entries = entries.add_all(self.entries());
+            let resolved = e.resolve(problem, &entries)?;
+            Some(resolved)
+        } else {
+            None
+        };
+        Ok(self.new_expr(expr))
+    }
+
+    //---------- Parameter Size ----------
+
+    fn check_parameter_size(&self, problem: &Problem) -> Result<(), Error> {
+        if let Some(expr) = &self.expr() {
+            expr.check_parameter_size(problem)?;
+        }
+        Ok(())
+    }
+
+    //---------- Typing ----------
+
+    fn check_type(&self, problem: &Problem) -> Result<(), Error> {
+        if let Some(e) = &self.expr() {
+            e.check_type(problem)?;
+            check_compatible_type(self.typ(), e, &e.typ(problem))?;
+        }
+        Ok(())
+    }
+}
+
 //------------------------- Id -------------------------
 
 pub trait Id: Clone + Copy + PartialEq + Eq + core::hash::Hash + std::fmt::Debug {
@@ -51,11 +123,11 @@ pub trait FromId<I: Id> {
 use crate::error::Error;
 use crate::parser::Position;
 
-pub trait Named<I: Id> {
+pub trait Named<I: Id>: WithPosition {
     fn id(&self) -> I;
     fn set_id(&mut self, id: I);
+    //
     fn name(&self) -> &str;
-    fn position(&self) -> &Option<Position>;
     fn naming(&self) -> Naming {
         (self.name().into(), self.position().clone())
     }

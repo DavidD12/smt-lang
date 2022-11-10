@@ -170,7 +170,7 @@ impl Type {
             Type::Structure(id) => problem
                 .structure_instances(*id)
                 .iter()
-                .map(|i| Expr::Instance(*i, None))
+                .map(|i| Expr::StrucInstance(*i, None))
                 .collect(),
             Type::Bool => vec![Expr::BoolValue(false, None), Expr::BoolValue(true, None)],
             Type::Interval(min, max) => (*min..*max)

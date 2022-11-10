@@ -54,11 +54,11 @@ Structure: () = "struct" <i:Identifier> "{" <elts:StructureElement*> "}" => {
 };
 
 StructureElement: StructureElement = {
-    <a:Attribute> => StructureElement::Attribute(a),
-    <m:Method> => StructureElement::Method(m),
+    <a:StrucAttribute> => StructureElement::Attribute(a),
+    <m:StrucMethod> => StructureElement::Method(m),
 };
 
-//------------------------- Variable -------------------------
+//------------------------- Instance -------------------------
 
 Instance: () = "inst" <l:Identifiers> ":" <s:Identifier> => {
     for i in l {
@@ -69,16 +69,16 @@ Instance: () = "inst" <l:Identifiers> ":" <s:Identifier> => {
     }
 }; 
 
-//------------------------- Attribute -------------------------
+//------------------------- Strcuture Attribute -------------------------
 
-Attribute: Attribute = <i:Identifier> ":" <t:Type> <e:Assign?> => {
+StrucAttribute: Attribute<StructureId> = <i:Identifier> ":" <t:Type> <e:Assign?> => {
     let position = Some(i.position.clone());
     Attribute::new(i.name, t, e, position)
 };
 
-//------------------------- Method -------------------------
+//------------------------- Structure Method -------------------------
 
-Method: Method = <i:Identifier> "(" <p:MetParameters> ")" ":" <t:Type> <e:Assign?> => {
+StrucMethod: Method<StructureId> = <i:Identifier> "(" <p:StrucMetParameters> ")" ":" <t:Type> <e:Assign?> => {
     let position = Some(i.position.clone());
     let mut m = Method::new(i.name, t, e, position);
     for x in p {
@@ -89,19 +89,19 @@ Method: Method = <i:Identifier> "(" <p:MetParameters> ")" ":" <t:Type> <e:Assign
 
 //------------------------- Method Parameter -------------------------
 
-MetParameter: Parameter<MethodId> = <i:Identifier> ":" <t:Type> => {
+StrucMetParameter: Parameter<MethodId<StructureId>> = <i:Identifier> ":" <t:Type> => {
     let position = Some(i.position.clone());
     Parameter::new(i.name, t, position)
 };
 
-MetParameters: Vec<Parameter<MethodId>> = <p:MetParameter> <l:MetParameterNext*> => {
+StrucMetParameters: Vec<Parameter<MethodId<StructureId>>> = <p:StrucMetParameter> <l:StrucMetParameterNext*> => {
     let mut parameters = Vec::new();
     parameters.push(p);
     parameters.extend(l);
     parameters
 };
 
-MetParameterNext: Parameter<MethodId> = "," <p:MetParameter> => p;
+StrucMetParameterNext: Parameter<MethodId<StructureId>> = "," <p:StrucMetParameter> => p;
 
 //------------------------- Variable -------------------------
 
@@ -169,7 +169,7 @@ Expr: Expr = ImpliesOrExpr;
 ImpliesOrExpr: Expr = {
     <left:ImpliesOrExpr> <l:@L><op:ImpliesOrOp> <right:AndExpr> => {
         let position = Some(Position::new(parser.file(), lookup, l));
-        Expr::BinExpr(Box::new(left), op, Box::new(right), position)
+        Expr::Binary(Box::new(left), op, Box::new(right), position)
     },
     AndExpr,
 };
@@ -177,7 +177,7 @@ ImpliesOrExpr: Expr = {
 AndExpr: Expr = {
     <left:AndExpr> <l:@L>"and" <right:CompExpr> => {
         let position = Some(Position::new(parser.file(), lookup, l));
-        Expr::BinExpr(Box::new(left), BinOp::And, Box::new(right), position)
+        Expr::Binary(Box::new(left), BinOp::And, Box::new(right), position)
     },
     CompExpr,
 };
@@ -185,7 +185,7 @@ AndExpr: Expr = {
 CompExpr: Expr = {
     <left:CompExpr> <l:@L><op:CompOp> <right:AddSubExpr> => {
         let position = Some(Position::new(parser.file(), lookup, l));
-        Expr::BinExpr(Box::new(left), op, Box::new(right), position)
+        Expr::Binary(Box::new(left), op, Box::new(right), position)
     },
     AddSubExpr,
 };
@@ -193,7 +193,7 @@ CompExpr: Expr = {
 AddSubExpr: Expr = {
     <left:AddSubExpr> <l:@L><op:AddSubOp> <right:MulDivExpr> => {
         let position = Some(Position::new(parser.file(), lookup, l));
-        Expr::BinExpr(Box::new(left), op, Box::new(right), position)
+        Expr::Binary(Box::new(left), op, Box::new(right), position)
     },
     MulDivExpr,
 };
@@ -201,7 +201,7 @@ AddSubExpr: Expr = {
 MulDivExpr: Expr = {
     <left:MulDivExpr> <l:@L><op:MulDivOp> <right:PreExpr> => {
         let position = Some(Position::new(parser.file(), lookup, l));
-        Expr::BinExpr(Box::new(left), op, Box::new(right), position)
+        Expr::Binary(Box::new(left), op, Box::new(right), position)
     },
     PreExpr,
 };
@@ -209,7 +209,7 @@ MulDivExpr: Expr = {
 PreExpr: Expr = {
     <l:@L><op:PreOp> <e: PreExpr> => {
         let position = Some(Position::new(parser.file(), lookup, l));
-        Expr::PreExpr(op, Box::new(e), position)
+        Expr::Prefix(op, Box::new(e), position)
     },
     FunCallExpr,
 };

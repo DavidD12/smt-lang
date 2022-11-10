@@ -1,6 +1,10 @@
+use std::marker::PhantomData;
+
 use super::*;
 
 //------------------------- Entry Type -------------------------
+
+pub struct SelfEntry<T: Id>(PhantomData<T>);
 
 #[derive(Copy, Clone, PartialEq, Eq, Hash, Debug)]
 pub enum EntryType {
@@ -8,8 +12,8 @@ pub enum EntryType {
     Variable(VariableId),
     // Function(FunctionId),
     FunParam(ParameterId<FunctionId>),
-    Self_(StructureId),
-    MetParam(ParameterId<MethodId>),
+    StrucSelf(StructureId),
+    StrucMetParam(ParameterId<MethodId<StructureId>>),
 }
 
 //------------------------- Entry -------------------------
@@ -58,10 +62,10 @@ impl FromId<ParameterId<FunctionId>> for Entry {
     }
 }
 
-impl FromId<ParameterId<MethodId>> for Entry {
-    fn from_id(problem: &Problem, id: ParameterId<MethodId>) -> Self {
+impl FromId<ParameterId<MethodId<StructureId>>> for Entry {
+    fn from_id(problem: &Problem, id: ParameterId<MethodId<StructureId>>) -> Self {
         let name = problem.get(id).unwrap().name().into();
-        let typ = EntryType::MetParam(id);
+        let typ = EntryType::StrucMetParam(id);
         Self { name, typ }
     }
 }
@@ -84,6 +88,15 @@ impl Entries {
     pub fn add(&self, entry: Entry) -> Entries {
         let mut v = self.entries().clone();
         v.push(entry);
+        Entries(v)
+    }
+
+    pub fn add_all(&self, entries: Entries) -> Entries {
+        let Entries(others) = entries;
+        let mut v = self.entries().clone();
+        for entry in others {
+            v.push(entry);
+        }
         Entries(v)
     }
 

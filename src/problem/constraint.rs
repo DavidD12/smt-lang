@@ -65,6 +65,14 @@ impl Constraint {
     }
 }
 
+//------------------------- Postion -------------------------
+
+impl WithPosition for Constraint {
+    fn position(&self) -> &Option<Position> {
+        &self.position
+    }
+}
+
 //------------------------- Named -------------------------
 
 impl Named<ConstraintId> for Constraint {
@@ -78,10 +86,6 @@ impl Named<ConstraintId> for Constraint {
 
     fn name(&self) -> &str {
         &self.name
-    }
-
-    fn position(&self) -> &Option<Position> {
-        &self.position
     }
 }
 

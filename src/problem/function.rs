@@ -19,7 +19,7 @@ pub struct Function {
     id: FunctionId,
     name: String,
     parameters: Vec<Parameter<FunctionId>>,
-    return_type: Type,
+    typ: Type,
     expr: Option<Expr>,
     position: Option<Position>,
 }
@@ -27,7 +27,7 @@ pub struct Function {
 impl Function {
     pub fn new<S: Into<String>>(
         name: S,
-        return_type: Type,
+        typ: Type,
         expr: Option<Expr>,
         position: Option<Position>,
     ) -> Self {
@@ -37,26 +37,10 @@ impl Function {
             id,
             name,
             parameters: vec![],
-            return_type,
+            typ,
             expr,
             position,
         }
-    }
-
-    pub fn return_type(&self) -> Type {
-        self.return_type.clone()
-    }
-
-    // pub fn typ(&self) -> Type {
-    //     Type::Function(self.parameters_type(), Box::new(self.return_type()))
-    // }
-
-    pub fn expr(&self) -> &Option<Expr> {
-        &self.expr
-    }
-
-    pub fn clear_expr(&mut self) {
-        self.expr = None;
     }
 
     //---------- Parameter ----------
@@ -107,57 +91,6 @@ impl Function {
         Ok(())
     }
 
-    //---------- Resolve ----------
-
-    pub fn resolve_type(&mut self, entries: &TypeEntries) -> Result<(), Error> {
-        self.return_type = self.return_type.resolve_type(entries)?;
-        for p in self.parameters.iter_mut() {
-            p.resolve_type(entries)?;
-        }
-        Ok(())
-    }
-
-    pub fn resolve_expr(&self, problem: &Problem, entries: &Entries) -> Result<Function, Error> {
-        let expr = if let Some(e) = &self.expr {
-            let mut entries = entries.clone();
-            for p in self.parameters.iter() {
-                let entry = Entry::new(p.name().to_string(), EntryType::FunParam(p.id()));
-                entries = entries.add(entry);
-            }
-            let resolved = e.resolve(problem, &entries)?;
-            Some(resolved)
-        } else {
-            None
-        };
-        Ok(Function {
-            id: self.id,
-            name: self.name.clone(),
-            parameters: self.parameters.clone(),
-            return_type: self.return_type.clone(),
-            expr,
-            position: self.position.clone(),
-        })
-    }
-
-    //---------- Interval ----------
-
-    pub fn check_interval(&self, problem: &Problem) -> Result<(), Error> {
-        self.return_type.check_interval(problem, &self.position)?;
-        for p in self.parameters.iter() {
-            p.check_interval(problem)?;
-        }
-        Ok(())
-    }
-
-    //---------- Parameter Size ----------
-
-    pub fn check_parameter_size(&self, problem: &Problem) -> Result<(), Error> {
-        if let Some(expr) = &self.expr {
-            expr.check_parameter_size(problem)?;
-        }
-        Ok(())
-    }
-
     //---------- Bounded ----------
 
     pub fn check_bounded(&self, problem: &Problem) -> Result<(), Error> {
@@ -166,15 +99,13 @@ impl Function {
         }
         Ok(())
     }
+}
 
-    //---------- Typing ----------
+//------------------------- Postion -------------------------
 
-    pub fn check_type(&self, problem: &Problem) -> Result<(), Error> {
-        if let Some(e) = &self.expr {
-            e.check_type(problem)?;
-            check_compatible_type(&self.return_type, e, &e.typ(problem))?;
-        }
-        Ok(())
+impl WithPosition for Function {
+    fn position(&self) -> &Option<Position> {
+        &self.position
     }
 }
 
@@ -192,9 +123,65 @@ impl Named<FunctionId> for Function {
     fn name(&self) -> &str {
         &self.name
     }
+}
 
-    fn position(&self) -> &Option<Position> {
-        &self.position
+//------------------------- With Type -------------------------
+
+impl WithType for Function {
+    fn typ(&self) -> &Type {
+        &self.typ
+    }
+
+    fn set_type(&mut self, typ: Type) {
+        self.typ = typ;
+    }
+
+    fn resolve_type_children(&mut self, entries: &TypeEntries) -> Result<(), Error> {
+        for p in self.parameters.iter_mut() {
+            p.resolve_type(entries)?;
+        }
+        Ok(())
+    }
+
+    fn check_interval_children(&self, problem: &Problem) -> Result<(), Error> {
+        for p in self.parameters.iter() {
+            p.check_interval(problem)?;
+        }
+        Ok(())
+    }
+}
+
+//------------------------- With Expr -------------------------
+
+impl WithExpr for Function {
+    fn expr(&self) -> &Option<Expr> {
+        &self.expr
+    }
+
+    fn clear_expr(&mut self) {
+        self.expr = None;
+    }
+
+    fn new_expr(&self, expr: Option<Expr>) -> Self {
+        Self {
+            id: self.id,
+            name: self.name.clone(),
+            parameters: self.parameters.clone(),
+            typ: self.typ.clone(),
+            expr,
+            position: self.position.clone(),
+        }
+    }
+
+    fn entries(&self) -> Entries {
+        let mut v = Vec::new();
+        for p in self.parameters.iter() {
+            v.push(Entry::new(
+                p.name().to_string(),
+                EntryType::FunParam(p.id()),
+            ));
+        }
+        Entries::new(v)
     }
 }
 
@@ -212,7 +199,7 @@ impl ToLang for Function {
                 s.push_str(&format!(", {}", p.to_lang(problem)));
             }
         }
-        s.push_str(&format!("): {}", self.return_type.to_lang(problem)));
+        s.push_str(&format!("): {}", self.typ.to_lang(problem)));
         if let Some(e) = &self.expr {
             s.push_str(&format!(" = {}", e.to_lang(problem)));
         }

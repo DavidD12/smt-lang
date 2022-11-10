@@ -4,26 +4,26 @@ use crate::parser::Position;
 //------------------------- Id -------------------------
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Hash)]
-pub struct AttributeId(pub StructureId, pub usize);
+pub struct AttributeId<T: Id>(pub T, pub usize);
 
-impl Id for AttributeId {
+impl<T: Id> Id for AttributeId<T> {
     fn empty() -> Self {
-        Self(StructureId::empty(), 0)
+        Self(T::empty(), 0)
     }
 }
 
 //------------------------- Attribute -------------------------
 
 #[derive(Clone)]
-pub struct Attribute {
-    id: AttributeId,
+pub struct Attribute<T: Id> {
+    id: AttributeId<T>,
     name: String,
     typ: Type,
     expr: Option<Expr>,
     position: Option<Position>,
 }
 
-impl Attribute {
+impl<T: Id> Attribute<T> {
     pub fn new<S: Into<String>>(
         name: S,
         typ: Type,
@@ -40,98 +40,84 @@ impl Attribute {
             position,
         }
     }
-
-    pub fn typ(&self) -> Type {
-        self.typ.clone()
-    }
-
-    pub fn expr(&self) -> &Option<Expr> {
-        &self.expr
-    }
-
-    pub fn clear_expr(&mut self) {
-        self.expr = None;
-    }
-
-    //---------- Resolve ----------
-
-    pub fn resolve_type(&mut self, entries: &TypeEntries) -> Result<(), Error> {
-        self.typ = self.typ.resolve_type(entries)?;
-        Ok(())
-    }
-
-    pub fn resolve_expr(&self, problem: &Problem, entries: &Entries) -> Result<Attribute, Error> {
-        let expr = if let Some(e) = &self.expr {
-            let AttributeId(structure_id, _) = self.id();
-            let resolved = e.resolve(
-                problem,
-                &entries.add(Entry::new(
-                    "self".to_string(),
-                    EntryType::Self_(structure_id),
-                )),
-            )?;
-            Some(resolved)
-        } else {
-            None
-        };
-        Ok(Attribute {
-            id: self.id,
-            name: self.name.clone(),
-            typ: self.typ.clone(),
-            expr,
-            position: self.position.clone(),
-        })
-    }
-
-    //---------- Interval ----------
-
-    pub fn check_interval(&self, problem: &Problem) -> Result<(), Error> {
-        self.typ.check_interval(problem, &self.position)
-    }
-
-    //---------- Parameter Size ----------
-
-    pub fn check_parameter_size(&self, problem: &Problem) -> Result<(), Error> {
-        if let Some(expr) = &self.expr {
-            expr.check_parameter_size(problem)?;
-        }
-        Ok(())
-    }
-
-    //---------- Typing ----------
-
-    pub fn check_type(&self, problem: &Problem) -> Result<(), Error> {
-        if let Some(e) = &self.expr {
-            e.check_type(problem)?;
-            check_compatible_type(&self.typ, e, &e.typ(problem))?;
-        }
-        Ok(())
-    }
 }
 
+//------------------------- Postion -------------------------
+
+impl<T: Id> WithPosition for Attribute<T> {
+    fn position(&self) -> &Option<Position> {
+        &self.position
+    }
+}
 //------------------------- Named -------------------------
 
-impl Named<AttributeId> for Attribute {
-    fn id(&self) -> AttributeId {
+impl<T: Id> Named<AttributeId<T>> for Attribute<T> {
+    fn id(&self) -> AttributeId<T> {
         self.id
     }
 
-    fn set_id(&mut self, id: AttributeId) {
+    fn set_id(&mut self, id: AttributeId<T>) {
         self.id = id;
     }
 
     fn name(&self) -> &str {
         &self.name
     }
+}
 
-    fn position(&self) -> &Option<Position> {
-        &self.position
+//------------------------- With Type -------------------------
+
+impl<T: Id> WithType for Attribute<T> {
+    fn typ(&self) -> &Type {
+        &self.typ
+    }
+
+    fn set_type(&mut self, typ: Type) {
+        self.typ = typ;
+    }
+
+    fn resolve_type_children(&mut self, _: &TypeEntries) -> Result<(), Error> {
+        Ok(())
+    }
+
+    fn check_interval_children(&self, _: &Problem) -> Result<(), Error> {
+        Ok(())
+    }
+}
+
+//------------------------- With Expr -------------------------
+
+impl WithExpr for Attribute<StructureId> {
+    fn expr(&self) -> &Option<Expr> {
+        &self.expr
+    }
+
+    fn clear_expr(&mut self) {
+        self.expr = None;
+    }
+
+    fn new_expr(&self, expr: Option<Expr>) -> Self {
+        Self {
+            id: self.id,
+            name: self.name.clone(),
+            typ: self.typ.clone(),
+            expr,
+            position: self.position.clone(),
+        }
+    }
+
+    fn entries(&self) -> Entries {
+        let AttributeId(structure_id, _) = self.id();
+        Entries::new(vec![Entry::new(
+            "self".to_string(),
+            EntryType::StrucSelf(structure_id),
+        )])
     }
 }
 
 //------------------------- ToLang -------------------------
 
-impl ToLang for Attribute {
+impl<T: Id> ToLang for Attribute<T> {
     fn to_lang(&self, problem: &Problem) -> String {
         let mut s = format!("    {}: {}", self.name(), self.typ.to_lang(problem));
         if let Some(e) = &self.expr {

@@ -1,38 +1,33 @@
 use super::*;
 use crate::parser::Position;
 
-//------------------------- Parameter -------------------------
-
-// pub type MethParamId = ParameterId<MethodId>;
-// pub type MethParam = Parameter<MethodId>;
-
 //------------------------- Id -------------------------
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Hash)]
-pub struct MethodId(pub StructureId, pub usize);
+pub struct MethodId<T: Id>(pub T, pub usize);
 
-impl Id for MethodId {
+impl<T: Id> Id for MethodId<T> {
     fn empty() -> Self {
-        Self(StructureId::empty(), 0)
+        Self(T::empty(), 0)
     }
 }
 
 //------------------------- Method -------------------------
 
 #[derive(Clone)]
-pub struct Method {
-    id: MethodId,
+pub struct Method<T: Id> {
+    id: MethodId<T>,
     name: String,
-    parameters: Vec<Parameter<MethodId>>,
-    return_type: Type,
+    parameters: Vec<Parameter<MethodId<T>>>,
+    typ: Type,
     expr: Option<Expr>,
     position: Option<Position>,
 }
 
-impl Method {
+impl<T: Id> Method<T> {
     pub fn new<S: Into<String>>(
         name: S,
-        return_type: Type,
+        typ: Type,
         expr: Option<Expr>,
         position: Option<Position>,
     ) -> Self {
@@ -42,34 +37,25 @@ impl Method {
             id,
             name,
             parameters: vec![],
-            return_type,
+            typ,
             expr,
             position,
         }
     }
 
-    pub fn return_type(&self) -> Type {
-        self.return_type.clone()
-    }
+    //---------- Parameter ----------
 
-    pub fn expr(&self) -> &Option<Expr> {
-        &self.expr
-    }
-
-    pub fn clear_expr(&mut self) {
-        self.expr = None;
-    }
-
-    //---------- Argument ----------
-
-    pub fn add_parameter(&mut self, mut parameter: Parameter<MethodId>) -> ParameterId<MethodId> {
+    pub fn add_parameter(
+        &mut self,
+        mut parameter: Parameter<MethodId<T>>,
+    ) -> ParameterId<MethodId<T>> {
         let id = ParameterId(self.id, self.parameters.len());
         parameter.set_id(id);
         self.parameters.push(parameter);
         id
     }
 
-    pub fn get_parameter(&self, id: ParameterId<MethodId>) -> Option<&Parameter<MethodId>> {
+    pub fn get_parameter(&self, id: ParameterId<MethodId<T>>) -> Option<&Parameter<MethodId<T>>> {
         let ParameterId(method_id, n) = id;
         if self.id != method_id {
             None
@@ -78,7 +64,7 @@ impl Method {
         }
     }
 
-    pub fn parameters(&self) -> &Vec<Parameter<MethodId>> {
+    pub fn parameters(&self) -> &Vec<Parameter<MethodId<T>>> {
         &self.parameters
     }
 
@@ -105,62 +91,6 @@ impl Method {
         Ok(())
     }
 
-    //---------- Resolve ----------
-
-    pub fn resolve_type(&mut self, entries: &TypeEntries) -> Result<(), Error> {
-        self.return_type = self.return_type.resolve_type(entries)?;
-        for p in self.parameters.iter_mut() {
-            p.resolve_type(entries)?;
-        }
-        Ok(())
-    }
-
-    pub fn resolve_expr(&self, problem: &Problem, entries: &Entries) -> Result<Method, Error> {
-        let expr = if let Some(e) = &self.expr {
-            let mut entries = entries.clone();
-            let MethodId(structure_id, _) = self.id();
-            entries = entries.add(Entry::new(
-                "self".to_string(),
-                EntryType::Self_(structure_id),
-            ));
-            for p in self.parameters.iter() {
-                let entry = Entry::new(p.name().to_string(), EntryType::MetParam(p.id()));
-                entries = entries.add(entry);
-            }
-            let resolved = e.resolve(problem, &entries)?;
-            Some(resolved)
-        } else {
-            None
-        };
-        Ok(Method {
-            id: self.id,
-            name: self.name.clone(),
-            parameters: self.parameters.clone(),
-            return_type: self.return_type.clone(),
-            expr,
-            position: self.position.clone(),
-        })
-    }
-
-    //---------- Interval ----------
-
-    pub fn check_interval(&self, problem: &Problem) -> Result<(), Error> {
-        self.return_type.check_interval(problem, &self.position)?;
-        for p in self.parameters.iter() {
-            p.check_interval(problem)?;
-        }
-        Ok(())
-    }
-
-    //---------- Parameter Size ----------
-
-    pub fn check_parameter_size(&self, problem: &Problem) -> Result<(), Error> {
-        if let Some(expr) = &self.expr {
-            expr.check_parameter_size(problem)?;
-        }
-        Ok(())
-    }
-
     //---------- Bounded ----------
 
     pub fn check_bounded(&self, problem: &Problem) -> Result<(), Error> {
@@ -169,41 +99,100 @@ impl Method {
         }
         Ok(())
     }
+}
 
-    //---------- Typing ----------
+//------------------------- Postion -------------------------
 
-    pub fn check_type(&self, problem: &Problem) -> Result<(), Error> {
-        if let Some(e) = &self.expr {
-            e.check_type(problem)?;
-            check_compatible_type(&self.return_type, e, &e.typ(problem))?;
-        }
-        Ok(())
+impl<T: Id> WithPosition for Method<T> {
+    fn position(&self) -> &Option<Position> {
+        &self.position
     }
 }
 
 //------------------------- Named -------------------------
 
-impl Named<MethodId> for Method {
-    fn id(&self) -> MethodId {
+impl<T: Id> Named<MethodId<T>> for Method<T> {
+    fn id(&self) -> MethodId<T> {
         self.id
     }
 
-    fn set_id(&mut self, id: MethodId) {
+    fn set_id(&mut self, id: MethodId<T>) {
         self.id = id;
     }
 
     fn name(&self) -> &str {
         &self.name
     }
+}
 
-    fn position(&self) -> &Option<Position> {
-        &self.position
+//------------------------- With Type -------------------------
+
+impl<T: Id> WithType for Method<T> {
+    fn typ(&self) -> &Type {
+        &self.typ
+    }
+
+    fn set_type(&mut self, typ: Type) {
+        self.typ = typ;
+    }
+
+    fn resolve_type_children(&mut self, entries: &TypeEntries) -> Result<(), Error> {
+        for p in self.parameters.iter_mut() {
+            p.resolve_type(entries)?;
+        }
+        Ok(())
+    }
+
+    fn check_interval_children(&self, problem: &Problem) -> Result<(), Error> {
+        for p in self.parameters.iter() {
+            p.check_interval(problem)?;
+        }
+        Ok(())
+    }
+}
+
+//------------------------- With Expr -------------------------
+
+impl WithExpr for Method<StructureId> {
+    fn expr(&self) -> &Option<Expr> {
+        &self.expr
+    }
+
+    fn clear_expr(&mut self) {
+        self.expr = None;
+    }
+
+    fn new_expr(&self, expr: Option<Expr>) -> Self {
+        Self {
+            id: self.id,
+            name: self.name.clone(),
+            parameters: self.parameters.clone(),
+            typ: self.typ.clone(),
+            expr,
+            position: self.position.clone(),
+        }
+    }
+
+    fn entries(&self) -> Entries {
+        let mut v = Vec::new();
+        for p in self.parameters.iter() {
+            v.push(Entry::new(
+                p.name().to_string(),
+                EntryType::StrucMetParam(p.id()),
+            ));
+        }
+        let MethodId(structure_id, _) = self.id();
+        v.push(Entry::new(
+            "self".to_string(),
+            EntryType::StrucSelf(structure_id),
+        ));
+        Entries::new(v)
     }
 }
 
 //------------------------- ToLang -------------------------
 
-impl ToLang for Method {
+impl<T: Id> ToLang for Method<T> {
     fn to_lang(&self, problem: &Problem) -> String {
         let mut s = format!("    {}(", self.name());
         if !self.parameters.is_empty() {
@@ -215,7 +204,7 @@ impl ToLang for Method {
                 s.push_str(&format!(", {}", p.to_lang(problem)));
             }
         }
-        s.push_str(&format!("): {}", self.return_type.to_lang(problem)));
+        s.push_str(&format!("): {}", self.typ.to_lang(problem)));
         if let Some(e) = &self.expr {
             s.push_str(&format!(" = {}", e.to_lang(problem)));
         }
@@ -225,8 +214,8 @@ impl ToLang for Method {
 
 //------------------------- Get From Id -------------------------
 
-impl GetFromId<ParameterId<MethodId>, Parameter<MethodId>> for Method {
-    fn get(&self, id: ParameterId<MethodId>) -> Option<&Parameter<MethodId>> {
+impl<T: Id> GetFromId<ParameterId<MethodId<T>>, Parameter<MethodId<T>>> for Method<T> {
+    fn get(&self, id: ParameterId<MethodId<T>>) -> Option<&Parameter<MethodId<T>>> {
         self.get_parameter(id)
     }
 }

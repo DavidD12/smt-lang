@@ -6,8 +6,8 @@ use crate::solve::Smt;
 
 pub struct InstanceValue {
     id: InstanceId,
-    attributes: Vec<AttributeValue>,
-    methods: Vec<MethodValue>,
+    attributes: Vec<AttributeValue<StructureId>>,
+    methods: Vec<MethodValue<StructureId>>,
 }
 
 impl InstanceValue {

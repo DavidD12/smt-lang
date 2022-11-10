@@ -40,65 +40,13 @@ impl Variable {
             position,
         }
     }
+}
 
-    pub fn typ(&self) -> Type {
-        self.typ.clone()
-    }
+//------------------------- Postion -------------------------
 
-    pub fn expr(&self) -> &Option<Expr> {
-        &self.expr
-    }
-
-    pub fn clear_expr(&mut self) {
-        self.expr = None;
-    }
-
-    //---------- Resolve ----------
-
-    pub fn resolve_type(&mut self, entries: &TypeEntries) -> Result<(), Error> {
-        self.typ = self.typ.resolve_type(entries)?;
-        Ok(())
-    }
-
-    pub fn resolve_expr(&self, problem: &Problem, entries: &Entries) -> Result<Variable, Error> {
-        let expr = if let Some(e) = &self.expr {
-            let resolved = e.resolve(problem, entries)?;
-            Some(resolved)
-        } else {
-            None
-        };
-        Ok(Variable {
-            id: self.id,
-            name: self.name.clone(),
-            typ: self.typ.clone(),
-            expr,
-            position: self.position.clone(),
-        })
-    }
-
-    //---------- Interval ----------
-
-    pub fn check_interval(&self, problem: &Problem) -> Result<(), Error> {
-        self.typ.check_interval(problem, &self.position)
-    }
-
-    //---------- Parameter Size ----------
-
-    pub fn check_parameter_size(&self, problem: &Problem) -> Result<(), Error> {
-        if let Some(expr) = &self.expr {
-            expr.check_parameter_size(problem)?;
-        }
-        Ok(())
-    }
-
-    //---------- Typing ----------
-
-    pub fn check_type(&self, problem: &Problem) -> Result<(), Error> {
-        if let Some(e) = &self.expr {
-            e.check_type(problem)?;
-            check_compatible_type(&self.typ, e, &e.typ(problem))?;
-        }
-        Ok(())
+impl WithPosition for Variable {
+    fn position(&self) -> &Option<Position> {
+        &self.position
     }
 }
 
@@ -116,9 +64,51 @@ impl Named<VariableId> for Variable {
     fn name(&self) -> &str {
         &self.name
     }
+}
 
-    fn position(&self) -> &Option<Position> {
-        &self.position
+//------------------------- With Type -------------------------
+
+impl WithType for Variable {
+    fn typ(&self) -> &Type {
+        &self.typ
+    }
+
+    fn set_type(&mut self, typ: Type) {
+        self.typ = typ;
+    }
+
+    fn resolve_type_children(&mut self, _: &TypeEntries) -> Result<(), Error> {
+        Ok(())
+    }
+
+    fn check_interval_children(&self, _: &Problem) -> Result<(), Error> {
+        Ok(())
+    }
+}
+
+//------------------------- With Expr -------------------------
+
+impl WithExpr for Variable {
+    fn expr(&self) -> &Option<Expr> {
+        &self.expr
+    }
+
+    fn clear_expr(&mut self) {
+        self.expr = None;
+    }
+
+    fn new_expr(&self, expr: Option<Expr>) -> Self {
+        Self {
+            id: self.id,
+            name: self.name.clone(),
+            typ: self.typ.clone(),
+            expr,
+            position: self.position.clone(),
+        }
+    }
+
+    fn entries(&self) -> Entries {
+        Entries::new(vec![])
     }
 }
 

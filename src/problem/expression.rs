@@ -73,20 +73,25 @@ pub enum Expr {
     IntValue(isize, Option<Position>),
     RealValue(Fraction, Option<Position>),
     //
-    PreExpr(PreOp, Box<Expr>, Option<Position>),
+    Prefix(PreOp, Box<Expr>, Option<Position>),
     //
-    BinExpr(Box<Expr>, BinOp, Box<Expr>, Option<Position>),
+    Binary(Box<Expr>, BinOp, Box<Expr>, Option<Position>),
     //
     FunctionCall(FunctionId, Vec<Expr>, Option<Position>),
     //
     Variable(VariableId, Option<Position>),
     FunParam(ParameterId<FunctionId>, Option<Position>),
-    //
-    Instance(InstanceId, Option<Position>),
-    SelfExpr(StructureId, Option<Position>),
-    Attribute(Box<Expr>, AttributeId, Option<Position>),
-    MethodCall(Box<Expr>, MethodId, Vec<Expr>, Option<Position>),
-    MetParam(ParameterId<MethodId>, Option<Position>),
+    // Structure
+    StrucInstance(InstanceId, Option<Position>),
+    StrucSelf(StructureId, Option<Position>),
+    StrucAttribute(Box<Expr>, AttributeId<StructureId>, Option<Position>),
+    StrucMetCall(
+        Box<Expr>,
+        MethodId<StructureId>,
+        Vec<Expr>,
+        Option<Position>,
+    ),
+    StrucMetParam(ParameterId<MethodId<StructureId>>, Option<Position>),
     //
     Unresolved(String, Option<Position>),
     UnresolvedFunCall(String, Vec<Expr>, Option<Position>),
@@ -100,16 +105,16 @@ impl Expr {
             Expr::BoolValue(_, p) => p,
             Expr::IntValue(_, p) => p,
             Expr::RealValue(_, p) => p,
-            Expr::PreExpr(_, _, p) => p,
-            Expr::BinExpr(_, _, _, p) => p,
+            Expr::Prefix(_, _, p) => p,
+            Expr::Binary(_, _, _, p) => p,
             Expr::FunctionCall(_, _, p) => p,
             Expr::Variable(_, p) => p,
             Expr::FunParam(_, p) => p,
-            Expr::Instance(_, p) => p,
-            Expr::SelfExpr(_, p) => p,
-            Expr::Attribute(_, _, p) => p,
-            Expr::MethodCall(_, _, _, p) => p,
-            Expr::MetParam(_, p) => p,
+            Expr::StrucInstance(_, p) => p,
+            Expr::StrucSelf(_, p) => p,
+            Expr::StrucAttribute(_, _, p) => p,
+            Expr::StrucMetCall(_, _, _, p) => p,
+            Expr::StrucMetParam(_, p) => p,
             Expr::Unresolved(_, p) => p,
             Expr::UnresolvedFunCall(_, _, p) => p,
             Expr::UnresolvedAttribute(_, _, p) => p,
@@ -122,8 +127,8 @@ impl Expr {
             (Expr::BoolValue(x, _), Expr::BoolValue(y, _)) => x == y,
             (Expr::IntValue(x, _), Expr::IntValue(y, _)) => x == y,
             (Expr::RealValue(x, _), Expr::RealValue(y, _)) => x == y,
-            (Expr::PreExpr(o1, e1, _), Expr::PreExpr(o2, e2, _)) => o1 == o2 && e1.is_same(e2),
-            (Expr::BinExpr(l1, o1, r1, _), Expr::BinExpr(l2, o2, r2, _)) => {
+            (Expr::Prefix(o1, e1, _), Expr::Prefix(o2, e2, _)) => o1 == o2 && e1.is_same(e2),
+            (Expr::Binary(l1, o1, r1, _), Expr::Binary(l2, o2, r2, _)) => {
                 o1 == o2 && l1.is_same(l2) && r1.is_same(r2)
             }
             (Expr::FunctionCall(i1, p1, _), Expr::FunctionCall(i2, p2, _)) => {
@@ -131,13 +136,13 @@ impl Expr {
             }
             (Expr::Variable(i1, _), Expr::Variable(i2, _)) => i1 == i2,
             (Expr::FunParam(i1, _), Expr::FunParam(i2, _)) => i1 == i2,
-            (Expr::Instance(i1, _), Expr::Instance(i2, _)) => i1 == i2,
-            (Expr::SelfExpr(i1, _), Expr::SelfExpr(i2, _)) => i1 == i2,
-            (Expr::Attribute(_, i1, _), Expr::Attribute(_, i2, _)) => i1 == i2,
-            (Expr::MethodCall(e1, i1, a1, _), Expr::MethodCall(e2, i2, a2, _)) => {
+            (Expr::StrucInstance(i1, _), Expr::StrucInstance(i2, _)) => i1 == i2,
+            (Expr::StrucSelf(i1, _), Expr::StrucSelf(i2, _)) => i1 == i2,
+            (Expr::StrucAttribute(_, i1, _), Expr::StrucAttribute(_, i2, _)) => i1 == i2,
+            (Expr::StrucMetCall(e1, i1, a1, _), Expr::StrucMetCall(e2, i2, a2, _)) => {
                 e1.is_same(e2) && i1 == i2 && Self::all_same(a1, a2)
             }
-            (Expr::MetParam(i1, _), Expr::MetParam(i2, _)) => i1 == i2,
+            (Expr::StrucMetParam(i1, _), Expr::StrucMetParam(i2, _)) => i1 == i2,
             _ => false,
         }
     }
@@ -152,14 +157,14 @@ impl Expr {
             Expr::IntValue(_, _) => Ok(self.clone()),
             Expr::RealValue(_, _) => Ok(self.clone()),
             //
-            Expr::PreExpr(op, kid, position) => {
+            Expr::Prefix(op, kid, position) => {
                 let kid = kid.resolve(problem, entries)?;
-                Ok(Self::PreExpr(*op, Box::new(kid), position.clone()))
+                Ok(Self::Prefix(*op, Box::new(kid), position.clone()))
             }
-            Expr::BinExpr(left, op, right, position) => {
+            Expr::Binary(left, op, right, position) => {
                 let left = left.resolve(problem, entries)?;
                 let right = right.resolve(problem, entries)?;
-                Ok(Self::BinExpr(
+                Ok(Self::Binary(
                     Box::new(left),
                     *op,
                     Box::new(right),
@@ -177,30 +182,30 @@ impl Expr {
             //
             Expr::Variable(_, _) => Ok(self.clone()),
             Expr::FunParam(_, _) => Ok(self.clone()),
-            Expr::Instance(_, _) => Ok(self.clone()),
-            Expr::SelfExpr(_, _) => Ok(self.clone()),
-            Expr::Attribute(e, id, pos) => {
+            Expr::StrucInstance(_, _) => Ok(self.clone()),
+            Expr::StrucSelf(_, _) => Ok(self.clone()),
+            Expr::StrucAttribute(e, id, pos) => {
                 let e = e.resolve(problem, entries)?;
-                Ok(Expr::Attribute(Box::new(e), *id, pos.clone()))
+                Ok(Expr::StrucAttribute(Box::new(e), *id, pos.clone()))
             }
-            Expr::MethodCall(e, id, args, pos) => {
+            Expr::StrucMetCall(e, id, args, pos) => {
                 let e = e.resolve(problem, entries)?;
                 let mut v: Vec<Expr> = vec![];
                 for p in args.iter() {
                     v.push(p.resolve(problem, entries)?);
                 }
 
-                Ok(Expr::MethodCall(Box::new(e), *id, v, pos.clone()))
+                Ok(Expr::StrucMetCall(Box::new(e), *id, v, pos.clone()))
             }
-            Expr::MetParam(_, _) => Ok(self.clone()),
+            Expr::StrucMetParam(_, _) => Ok(self.clone()),
             //
             Expr::Unresolved(name, position) => match entries.get(&name) {
                 Some(entry) => match entry.typ() {
                     EntryType::Variable(id) => Ok(Self::Variable(id, position.clone())),
                     EntryType::FunParam(id) => Ok(Self::FunParam(id, position.clone())),
-                    EntryType::Instance(id) => Ok(Expr::Instance(id, position.clone())),
-                    EntryType::Self_(id) => Ok(Expr::SelfExpr(id, position.clone())),
-                    EntryType::MetParam(id) => Ok(Self::MetParam(id, position.clone())),
+                    EntryType::Instance(id) => Ok(Expr::StrucInstance(id, position.clone())),
+                    EntryType::StrucSelf(id) => Ok(Expr::StrucSelf(id, position.clone())),
+                    EntryType::StrucMetParam(id) => Ok(Self::StrucMetParam(id, position.clone())),
                 },
                 None => Err(Error::Resolve {
                     category: "identifier".to_string(),
@@ -226,7 +231,7 @@ impl Expr {
                 let e = e.resolve(problem, entries)?;
                 if let Type::Structure(id) = e.typ(problem) {
                     if let Some(a) = problem.get(id).unwrap().find_attribute(name) {
-                        return Ok(Expr::Attribute(Box::new(e), a.id(), pos.clone()));
+                        return Ok(Expr::StrucAttribute(Box::new(e), a.id(), pos.clone()));
                     }
                 }
                 Err(Error::Resolve {
@@ -243,7 +248,7 @@ impl Expr {
                 }
                 if let Type::Structure(id) = e.typ(problem) {
                     if let Some(m) = problem.get(id).unwrap().find_method(name) {
-                        return Ok(Expr::MethodCall(Box::new(e), m.id(), v, pos.clone()));
+                        return Ok(Expr::StrucMetCall(Box::new(e), m.id(), v, pos.clone()));
                     }
                 }
                 Err(Error::Resolve {
@@ -260,7 +265,7 @@ impl Expr {
             Expr::BoolValue(_, _) => Type::Bool,
             Expr::IntValue(value, _) => Type::Interval(*value, *value),
             Expr::RealValue(_, _) => Type::Real,
-            Expr::PreExpr(op, e, _) => match op {
+            Expr::Prefix(op, e, _) => match op {
                 PreOp::Not => Type::Bool,
                 PreOp::Minus => match e.typ(problem) {
                     Type::Int => Type::Int,
@@ -269,7 +274,7 @@ impl Expr {
                     _ => Type::Undefined,
                 },
             },
-            Expr::BinExpr(left, op, right, _) => match op {
+            Expr::Binary(left, op, right, _) => match op {
                 BinOp::Eq => Type::Bool,
                 BinOp::Ne => Type::Bool,
                 BinOp::Lt => Type::Bool,
@@ -309,14 +314,14 @@ impl Expr {
                 },
                 BinOp::Div => Type::Real,
             },
-            Expr::FunctionCall(id, _, _) => problem.get(*id).unwrap().return_type(),
-            Expr::Instance(id, _) => problem.get(*id).unwrap().typ(),
-            Expr::Variable(id, _) => problem.get(*id).unwrap().typ(),
-            Expr::FunParam(id, _) => problem.get(*id).unwrap().typ(),
-            Expr::SelfExpr(id, _) => Type::Structure(*id),
-            Expr::Attribute(_, id, _) => problem.get(*id).unwrap().typ(),
-            Expr::MethodCall(_, id, _, _) => problem.get(*id).unwrap().return_type(),
-            Expr::MetParam(id, _) => problem.get(*id).unwrap().typ(),
+            Expr::FunctionCall(id, _, _) => problem.get(*id).unwrap().typ().clone(),
+            Expr::StrucInstance(id, _) => problem.get(*id).unwrap().typ(),
+            Expr::Variable(id, _) => problem.get(*id).unwrap().typ().clone(),
+            Expr::FunParam(id, _) => problem.get(*id).unwrap().typ().clone(),
+            Expr::StrucSelf(id, _) => Type::Structure(*id),
+            Expr::StrucAttribute(_, id, _) => problem.get(*id).unwrap().typ().clone(),
+            Expr::StrucMetCall(_, id, _, _) => problem.get(*id).unwrap().typ().clone(),
+            Expr::StrucMetParam(id, _) => problem.get(*id).unwrap().typ().clone(),
             Expr::Unresolved(_, _) => Type::Undefined,
             Expr::UnresolvedFunCall(_, _, _) => Type::Undefined,
             Expr::UnresolvedAttribute(_, _, _) => Type::Undefined,
@@ -329,7 +334,7 @@ impl Expr {
             Expr::BoolValue(_, _) => Ok(()),
             Expr::IntValue(_, _) => Ok(()),
             Expr::RealValue(_, _) => Ok(()),
-            Expr::PreExpr(op, e, _) => {
+            Expr::Prefix(op, e, _) => {
                 e.check_type(problem)?;
                 let e_type = e.typ(problem);
                 match op {
@@ -337,7 +342,7 @@ impl Expr {
                     PreOp::Minus => check_type_number(e, &e_type),
                 }
             }
-            Expr::BinExpr(l, op, r, _) => {
+            Expr::Binary(l, op, r, _) => {
                 l.check_type(problem)?;
                 r.check_type(problem)?;
                 let l_type = l.typ(problem);
@@ -381,17 +386,17 @@ impl Expr {
                 }
                 Ok(())
             }
-            Expr::Instance(_, _) => Ok(()),
+            Expr::StrucInstance(_, _) => Ok(()),
             Expr::Variable(_, _) => Ok(()),
             Expr::FunParam(_, _) => Ok(()),
-            Expr::SelfExpr(_, _) => Ok(()),
-            Expr::Attribute(e, id, _) => {
+            Expr::StrucSelf(_, _) => Ok(()),
+            Expr::StrucAttribute(e, id, _) => {
                 let et = e.typ(problem);
                 let AttributeId(structure_id, _) = id;
                 let st = problem.get(*structure_id).unwrap().typ();
                 check_subtype_type(&st, e, &et)
             }
-            Expr::MethodCall(e, id, args, _) => {
+            Expr::StrucMetCall(e, id, args, _) => {
                 let et = e.typ(problem);
                 let MethodId(structure_id, _) = id;
                 let st = problem.get(*structure_id).unwrap().typ();
@@ -402,7 +407,7 @@ impl Expr {
                 }
                 Ok(())
             }
-            Expr::MetParam(_, _) => Ok(()),
+            Expr::StrucMetParam(_, _) => Ok(()),
             Expr::Unresolved(_, _) => panic!(),
             Expr::UnresolvedFunCall(_, _, _) => panic!(),
             Expr::UnresolvedAttribute(_, _, _) => panic!(),
@@ -417,8 +422,8 @@ impl Expr {
             Expr::BoolValue(_, _) => Ok(()),
             Expr::IntValue(_, _) => Ok(()),
             Expr::RealValue(_, _) => Ok(()),
-            Expr::PreExpr(_, e, _) => e.check_type(problem),
-            Expr::BinExpr(l, _, r, _) => {
+            Expr::Prefix(_, e, _) => e.check_type(problem),
+            Expr::Binary(l, _, r, _) => {
                 l.check_parameter_size(problem)?;
                 r.check_parameter_size(problem)
             }
@@ -437,12 +442,12 @@ impl Expr {
                     })
                 }
             }
-            Expr::Instance(_, _) => Ok(()),
+            Expr::StrucInstance(_, _) => Ok(()),
             Expr::Variable(_, _) => Ok(()),
             Expr::FunParam(_, _) => Ok(()),
-            Expr::SelfExpr(_, _) => Ok(()),
-            Expr::Attribute(e, _, _) => e.check_parameter_size(problem),
-            Expr::MethodCall(e, id, v, _) => {
+            Expr::StrucSelf(_, _) => Ok(()),
+            Expr::StrucAttribute(e, _, _) => e.check_parameter_size(problem),
+            Expr::StrucMetCall(e, id, v, _) => {
                 e.check_parameter_size(problem)?;
                 for x in v.iter() {
                     x.check_parameter_size(problem)?;
@@ -458,7 +463,7 @@ impl Expr {
                     })
                 }
             }
-            Expr::MetParam(_, _) => Ok(()),
+            Expr::StrucMetParam(_, _) => Ok(()),
             Expr::Unresolved(_, _) => panic!(),
             Expr::UnresolvedFunCall(_, _, _) => panic!(),
             Expr::UnresolvedAttribute(_, _, _) => panic!(),
@@ -474,31 +479,31 @@ impl Expr {
                 Expr::BoolValue(_, _) => self.clone(),
                 Expr::IntValue(_, _) => self.clone(),
                 Expr::RealValue(_, _) => self.clone(),
-                Expr::PreExpr(op, e, pos) => {
-                    Expr::PreExpr(*op, Box::new(e.substitute(old, expr)), pos.clone())
+                Expr::Prefix(op, e, pos) => {
+                    Expr::Prefix(*op, Box::new(e.substitute(old, expr)), pos.clone())
                 }
-                Expr::BinExpr(left, op, right, pos) => {
+                Expr::Binary(left, op, right, pos) => {
                     let left = Box::new(left.substitute(old, expr));
                     let right = Box::new(right.substitute(old, expr));
-                    Expr::BinExpr(left, *op, right, pos.clone())
+                    Expr::Binary(left, *op, right, pos.clone())
                 }
                 Expr::FunctionCall(id, params, pos) => {
                     let params = params.iter().map(|p| p.substitute(old, expr)).collect();
                     Expr::FunctionCall(*id, params, pos.clone())
                 }
-                Expr::Instance(_, _) => self.clone(),
+                Expr::StrucInstance(_, _) => self.clone(),
                 Expr::Variable(_, _) => self.clone(),
                 Expr::FunParam(_, _) => self.clone(),
-                Expr::SelfExpr(_, _) => self.clone(),
-                Expr::Attribute(e, id, pos) => {
-                    Expr::Attribute(Box::new(e.substitute(old, expr)), *id, pos.clone())
+                Expr::StrucSelf(_, _) => self.clone(),
+                Expr::StrucAttribute(e, id, pos) => {
+                    Expr::StrucAttribute(Box::new(e.substitute(old, expr)), *id, pos.clone())
                 }
-                Expr::MethodCall(e, id, args, pos) => {
+                Expr::StrucMetCall(e, id, args, pos) => {
                     let e = e.substitute(old, expr);
                     let args = args.iter().map(|a| a.substitute(old, expr)).collect();
-                    Expr::MethodCall(Box::new(e), *id, args, pos.clone())
+                    Expr::StrucMetCall(Box::new(e), *id, args, pos.clone())
                 }
-                Expr::MetParam(_, _) => self.clone(),
+                Expr::StrucMetParam(_, _) => self.clone(),
                 Expr::Unresolved(_, _) => self.clone(),
                 Expr::UnresolvedFunCall(_, _, _) => panic!(),
                 Expr::UnresolvedAttribute(_, _, _) => panic!(),
@@ -576,8 +581,8 @@ impl ToLang for Expr {
             Expr::BoolValue(value, _) => format!("{}", value),
             Expr::IntValue(value, _) => format!("{}", value),
             Expr::RealValue(value, _) => format!("{}", value),
-            Expr::PreExpr(op, kid, _) => format!("({} {}", op, kid.to_lang(problem)),
-            Expr::BinExpr(left, op, right, _) => format!(
+            Expr::Prefix(op, kid, _) => format!("({} {}", op, kid.to_lang(problem)),
+            Expr::Binary(left, op, right, _) => format!(
                 "({} {} {})",
                 left.to_lang(problem),
                 op,
@@ -595,18 +600,18 @@ impl ToLang for Expr {
                 s.push_str(")");
                 s
             }
-            Expr::Instance(id, _) => problem.get(*id).unwrap().name().into(),
+            Expr::StrucInstance(id, _) => problem.get(*id).unwrap().name().into(),
             Expr::Variable(id, _) => problem.get(*id).unwrap().name().into(),
             Expr::FunParam(id, _) => problem.get(*id).unwrap().name().into(),
-            Expr::SelfExpr(_, _) => "self".to_string(),
-            Expr::Attribute(e, id, _) => {
+            Expr::StrucSelf(_, _) => "self".to_string(),
+            Expr::StrucAttribute(e, id, _) => {
                 format!(
                     "({}.{})",
                     e.to_lang(problem),
                     problem.get(*id).unwrap().name()
                 )
             }
-            Expr::MethodCall(e, id, args, _) => {
+            Expr::StrucMetCall(e, id, args, _) => {
                 let name = problem.get(*id).unwrap().name();
                 let mut s = format!("{}.{}(", e.to_lang(problem), name,);
                 if let Some((first, others)) = args.split_first() {
@@ -618,7 +623,7 @@ impl ToLang for Expr {
                 s.push_str(")");
                 s
             }
-            Expr::MetParam(id, _) => problem.get(*id).unwrap().name().into(),
+            Expr::StrucMetParam(id, _) => problem.get(*id).unwrap().name().into(),
             Expr::Unresolved(name, _) => format!("{}?", name),
             Expr::UnresolvedFunCall(name, params, _) => {
                 let mut s = format!("{}?(", name);

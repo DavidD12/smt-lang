@@ -34,23 +34,6 @@ impl<T: Id> Parameter<T> {
         }
     }
 
-    pub fn typ(&self) -> Type {
-        self.typ.clone()
-    }
-
-    //---------- Resolve ----------
-
-    pub fn resolve_type(&mut self, entries: &TypeEntries) -> Result<(), Error> {
-        self.typ = self.typ.resolve_type(entries)?;
-        Ok(())
-    }
-
-    //---------- Interval ----------
-
-    pub fn check_interval(&self, problem: &Problem) -> Result<(), Error> {
-        self.typ.check_interval(problem, &self.position)
-    }
-
     //---------- Bounded ----------
 
     pub fn check_bounded(&self, problem: &Problem) -> Result<(), Error> {
@@ -62,6 +45,34 @@ impl<T: Id> Parameter<T> {
                 position: self.position.clone(),
             })
         }
+    }
+}
+
+//------------------------- With Type -------------------------
+
+impl<T: Id> WithType for Parameter<T> {
+    fn typ(&self) -> &Type {
+        &self.typ
+    }
+
+    fn set_type(&mut self, typ: Type) {
+        self.typ = typ
+    }
+
+    fn resolve_type_children(&mut self, _: &TypeEntries) -> Result<(), Error> {
+        Ok(())
+    }
+
+    fn check_interval_children(&self, _: &Problem) -> Result<(), Error> {
+        Ok(())
+    }
+}
+
+//------------------------- Postion -------------------------
+
+impl<T: Id> WithPosition for Parameter<T> {
+    fn position(&self) -> &Option<Position> {
+        &self.position
     }
 }
 
@@ -78,10 +89,6 @@ impl<T: Id> Named<ParameterId<T>> for Parameter<T> {
 
     fn name(&self) -> &str {
         &self.name
-    }
-
-    fn position(&self) -> &Option<Position> {
-        &self.position
     }
 }
 
