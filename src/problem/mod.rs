@@ -12,14 +12,18 @@ pub use function::*;
 pub mod parameter;
 pub use parameter::*;
 
-pub mod structure;
-pub use structure::*;
 pub mod attribute;
 pub use attribute::*;
 pub mod method;
 pub use method::*;
+
+pub mod structure;
+pub use structure::*;
 pub mod instance;
 pub use instance::*;
+
+pub mod class;
+pub use class::*;
 
 pub mod constraint;
 pub use constraint::*;
@@ -98,7 +102,7 @@ pub trait WithExpr: Sized + WithPosition + WithType {
     fn check_type(&self, problem: &Problem) -> Result<(), Error> {
         if let Some(e) = &self.expr() {
             e.check_type(problem)?;
-            check_compatible_type(self.typ(), e, &e.typ(problem))?;
+            check_compatible_type(problem, self.typ(), e, &e.typ(problem))?;
         }
         Ok(())
     }

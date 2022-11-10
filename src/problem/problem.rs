@@ -4,6 +4,7 @@ use super::*;
 pub struct Problem {
     structures: Vec<Structure>,
     instances: Vec<Instance>,
+    classes: Vec<Class>,
     variables: Vec<Variable>,
     functions: Vec<Function>,
     constraints: Vec<Constraint>,
@@ -13,6 +14,7 @@ impl Problem {
     pub fn new() -> Self {
         Self {
             structures: vec![],
+            classes: vec![],
             instances: vec![],
             variables: vec![],
             functions: vec![],
@@ -42,18 +44,6 @@ impl Problem {
         self.structures.iter().find(|x| x.name() == name)
     }
 
-    pub fn structure_instances(&self, id: StructureId) -> Vec<InstanceId> {
-        self.instances
-            .iter()
-            .filter(|i| i.structure().resolved() == id)
-            .map(|i| i.id())
-            .collect()
-    }
-
-    pub fn structure_is_empty(&self, id: StructureId) -> bool {
-        self.structure_instances(id).is_empty()
-    }
-
     //---------- Instance ----------
 
     pub fn add_instance(&mut self, mut instance: Instance) -> InstanceId {
@@ -74,6 +64,28 @@ impl Problem {
 
     pub fn find_instance(&self, name: &str) -> Option<&Instance> {
         self.instances.iter().find(|x| x.name() == name)
+    }
+
+    //---------- Class ----------
+
+    pub fn add_class(&mut self, mut class: Class) -> ClassId {
+        let id = ClassId(self.classes.len());
+        class.set_id(id);
+        self.classes.push(class);
+        id
+    }
+
+    pub fn get_class(&self, id: ClassId) -> Option<&Class> {
+        let ClassId(n) = id;
+        self.classes.get(n)
+    }
+
+    pub fn classes(&self) -> &Vec<Class> {
+        &self.classes
+    }
+
+    pub fn find_class(&self, name: &str) -> Option<&Class> {
+        self.classes.iter().find(|x| x.name() == name)
     }
 
     //---------- Variable ----------
@@ -147,6 +159,11 @@ impl Problem {
                 .iter()
                 .map(|x| TypeEntry::from_id(self, x.id())),
         );
+        v.extend(
+            self.classes
+                .iter()
+                .map(|x| TypeEntry::from_id(self, x.id())),
+        );
         TypeEntries::new(v)
     }
 
@@ -162,6 +179,7 @@ impl Problem {
     pub fn naming(&self) -> Vec<Naming> {
         let mut v = vec![];
         v.extend(self.structures.iter().map(|x| x.naming()));
+        v.extend(self.classes.iter().map(|x| x.naming()));
         v.extend(self.instances.iter().map(|x| x.naming()));
         v.extend(self.variables.iter().map(|x| x.naming()));
         v.extend(self.functions.iter().map(|x| x.naming()));
@@ -174,6 +192,9 @@ impl Problem {
         for x in self.structures.iter() {
             x.duplicate()?;
         }
+        for x in self.classes.iter() {
+            x.duplicate()?;
+        }
         for x in self.functions.iter() {
             x.duplicate()?;
         }
@@ -182,19 +203,15 @@ impl Problem {
 
     //---------- Resolve ----------
 
-    pub fn resolve_instance(&mut self) -> Result<(), Error> {
-        let mut instances = vec![];
-        for x in self.instances.iter() {
-            let instance = x.resolve_instance(self)?;
-            instances.push(instance);
-        }
-        self.instances = instances;
-        Ok(())
-    }
-
     pub fn resolve_type(&mut self) -> Result<(), Error> {
         let entries = self.type_entries();
         for x in self.structures.iter_mut() {
+            x.resolve_type(&entries)?;
+        }
+        for x in self.classes.iter_mut() {
+            x.resolve_type(&entries)?;
+        }
+        for x in self.instances.iter_mut() {
             x.resolve_type(&entries)?;
         }
         for x in self.variables.iter_mut() {
@@ -215,6 +232,13 @@ impl Problem {
             structures.push(s);
         }
         self.structures = structures;
+        // Class
+        let mut classes = Vec::new();
+        for x in self.classes.iter() {
+            let c = x.resolve_expr(self, &entries)?;
+            classes.push(c);
+        }
+        self.classes = classes;
         // Variables
         let mut variables = Vec::new();
         for x in self.variables.iter() {
@@ -246,6 +270,9 @@ impl Problem {
         for x in self.structures.iter() {
             x.check_interval(self)?;
         }
+        for x in self.classes.iter() {
+            x.check_interval(self)?;
+        }
         for x in self.variables.iter() {
             x.check_interval(self)?;
         }
@@ -259,6 +286,9 @@ impl Problem {
 
     pub fn check_parameter_size(&self) -> Result<(), Error> {
         for x in self.structures.iter() {
+            x.check_parameter_size(self)?;
+        }
+        for x in self.classes.iter() {
             x.check_parameter_size(self)?;
         }
         for x in self.variables.iter() {
@@ -279,6 +309,9 @@ impl Problem {
         for x in self.structures.iter() {
             x.check_bounded(self)?;
         }
+        for x in self.classes.iter() {
+            x.check_bounded(self)?;
+        }
         for x in self.functions.iter() {
             x.check_bounded(self)?;
         }
@@ -289,6 +322,9 @@ impl Problem {
 
     pub fn check_type(&self) -> Result<(), Error> {
         for x in self.structures.iter() {
+            x.check_type(self)?;
+        }
+        for x in self.classes.iter() {
             x.check_type(self)?;
         }
         for x in self.variables.iter() {
@@ -307,10 +343,18 @@ impl Problem {
 
     pub fn check_empty(&self) -> Result<(), Error> {
         for x in self.structures.iter() {
-            if self.structure_is_empty(x.id()) {
+            if x.is_empty(self) {
                 return Err(Error::Empty {
                     name: x.name().to_string(),
                     category: "Structure".to_string(),
+                });
+            }
+        }
+        for x in self.classes.iter() {
+            if x.is_empty(self) {
+                return Err(Error::Empty {
+                    name: x.name().to_string(),
+                    category: "Class".to_string(),
                 });
             }
         }
@@ -345,10 +389,28 @@ impl Problem {
 impl std::fmt::Display for Problem {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         for x in self.structures.iter() {
+            write!(f, "// {:?}\n", x.id())?;
             write!(f, "{}\n", x.to_lang(self))?;
+            let instances = x.instances(self);
+            if let Some((first, others)) = instances.split_first() {
+                write!(f, "inst {}", self.get(*first).unwrap().name())?;
+                for i in others.iter() {
+                    write!(f, ", {}", self.get(*i).unwrap().name())?;
+                }
+                write!(f, ": {}\n", x.name())?;
+            }
         }
-        for x in self.instances.iter() {
+        for x in self.classes.iter() {
+            write!(f, "// {:?}\n", x.id())?;
             write!(f, "{}\n", x.to_lang(self))?;
+            let instances = x.instances(self);
+            if let Some((first, others)) = instances.split_first() {
+                write!(f, "inst {}", self.get(*first).unwrap().name())?;
+                for i in others.iter() {
+                    write!(f, ", {}", self.get(*i).unwrap().name())?;
+                }
+                write!(f, ": {}\n", x.name())?;
+            }
         }
         for x in self.variables.iter() {
             write!(f, "{}\n", x.to_lang(self))?;
@@ -395,6 +457,42 @@ impl GetFromId<ParameterId<MethodId<StructureId>>, Parameter<MethodId<StructureI
         &self,
         id: ParameterId<MethodId<StructureId>>,
     ) -> Option<&Parameter<MethodId<StructureId>>> {
+        let ParameterId(method_id, _) = id;
+        if let Some(method) = self.get(method_id) {
+            method.get(id)
+        } else {
+            None
+        }
+    }
+}
+
+impl GetFromId<ClassId, Class> for Problem {
+    fn get(&self, id: ClassId) -> Option<&Class> {
+        self.get_class(id)
+    }
+}
+impl GetFromId<AttributeId<ClassId>, Attribute<ClassId>> for Problem {
+    fn get(&self, id: AttributeId<ClassId>) -> Option<&Attribute<ClassId>> {
+        let AttributeId(class_id, _) = id;
+        if let Some(class) = self.get(class_id) {
+            class.get(id)
+        } else {
+            None
+        }
+    }
+}
+impl GetFromId<MethodId<ClassId>, Method<ClassId>> for Problem {
+    fn get(&self, id: MethodId<ClassId>) -> Option<&Method<ClassId>> {
+        let MethodId(class_id, _) = id;
+        if let Some(class) = self.get(class_id) {
+            class.get(id)
+        } else {
+            None
+        }
+    }
+}
+impl GetFromId<ParameterId<MethodId<ClassId>>, Parameter<MethodId<ClassId>>> for Problem {
+    fn get(&self, id: ParameterId<MethodId<ClassId>>) -> Option<&Parameter<MethodId<ClassId>>> {
         let ParameterId(method_id, _) = id;
         if let Some(method) = self.get(method_id) {
             method.get(id)

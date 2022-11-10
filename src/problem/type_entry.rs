@@ -5,6 +5,7 @@ use super::*;
 #[derive(Copy, Clone, PartialEq, Eq, Hash, Debug)]
 pub enum TypeEntryType {
     Structure(StructureId),
+    Class(ClassId),
 }
 
 //------------------------- TypeEntry -------------------------
@@ -33,6 +34,14 @@ impl FromId<StructureId> for TypeEntry {
     fn from_id(problem: &Problem, id: StructureId) -> Self {
         let name = problem.get(id).unwrap().name().into();
         let typ = TypeEntryType::Structure(id);
+        Self { name, typ }
+    }
+}
+
+impl FromId<ClassId> for TypeEntry {
+    fn from_id(problem: &Problem, id: ClassId) -> Self {
+        let name = problem.get(id).unwrap().name().into();
+        let typ = TypeEntryType::Class(id);
         Self { name, typ }
     }
 }

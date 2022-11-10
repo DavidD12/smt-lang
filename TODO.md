@@ -7,4 +7,7 @@
 - mutualiser les eq/ne/lt/.. commen dans Many
 - remove &xxx.typ() dans smt et autres car .type() retourne une reference maintenant
 
-- finir le refactor des parametres: with type & with ...
+- check inst type: Structure or class
+- check non cyclic extends
+- check non redifition of attribute, nor method
+- check bounded forall

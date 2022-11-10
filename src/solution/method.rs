@@ -27,7 +27,7 @@ impl MethodValue<StructureId> {
         let mut combine = Combine::new(params_all);
         //
         loop {
-            let inst = Expr::StrucInstance(instance, None);
+            let inst = Expr::Instance(instance, None);
             let values = combine.values();
             let call = Expr::StrucMetCall(Box::new(inst), method.id(), values.clone(), None);
             //

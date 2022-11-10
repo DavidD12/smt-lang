@@ -23,6 +23,7 @@ pub Problem: () = Entry* => {};
 Entry: () = {
     Include,
     Structure,
+    Class,
     Instance,
     Variable,
     Function,
@@ -58,17 +59,6 @@ StructureElement: StructureElement = {
     <m:StrucMethod> => StructureElement::Method(m),
 };
 
-//------------------------- Instance -------------------------
-
-Instance: () = "inst" <l:Identifiers> ":" <s:Identifier> => {
-    for i in l {
-        let struct_ref = StructureRef::Unresolved(s.name.clone(), Some(s.position.clone()));
-        let position = Some(i.position.clone());
-        let inst = Instance::new(i.name, struct_ref, position);
-        parser.problem.add_instance(inst);
-    }
-}; 
-
 //------------------------- Strcuture Attribute -------------------------
 
 StrucAttribute: Attribute<StructureId> = <i:Identifier> ":" <t:Type> <e:Assign?> => {
@@ -87,7 +77,7 @@ StrucMethod: Method<StructureId> = <i:Identifier> "(" <p:StrucMetParameters> ")"
     m
 };   
 
-//------------------------- Method Parameter -------------------------
+//------------------------- Structure Method Parameter -------------------------
 
 StrucMetParameter: Parameter<MethodId<StructureId>> = <i:Identifier> ":" <t:Type> => {
     let position = Some(i.position.clone());
@@ -102,6 +92,75 @@ StrucMetParameters: Vec<Parameter<MethodId<StructureId>>> = <p:StrucMetParameter
 };
 
 StrucMetParameterNext: Parameter<MethodId<StructureId>> = "," <p:StrucMetParameter> => p;
+
+//------------------------- Class -------------------------
+
+Class: () = "class" <i:Identifier> <e:Extends?> "{" <elts:ClassElement*> "}" => {
+    let position = Some(i.position.clone());
+    let mut class = Class::new(i.name, e, position);
+    for e in elts.iter() {
+        match e {
+            ClassElement::Attribute(a) => {
+                class.add_attribute(a.clone());
+            },
+            ClassElement::Method(m) => {
+                class.add_method(m.clone());
+            }
+        }
+    }
+    parser.problem.add_class(class);
+};
+
+Extends: Type = "extends" <t:Type> => t;
+
+ClassElement: ClassElement = {
+    <a:ClassAttribute> => ClassElement::Attribute(a),
+    <m:ClassMethod> => ClassElement::Method(m),
+};
+
+//------------------------- Class Attribute -------------------------
+
+ClassAttribute: Attribute<ClassId> = <i:Identifier> ":" <t:Type> <e:Assign?> => {
+    let position = Some(i.position.clone());
+    Attribute::new(i.name, t, e, position)
+};
+
+//------------------------- Class Method -------------------------
+
+ClassMethod: Method<ClassId> = <i:Identifier> "(" <p:ClassMetParameters> ")" ":" <t:Type> <e:Assign?> => {
+    let position = Some(i.position.clone());
+    let mut m = Method::new(i.name, t, e, position);
+    for x in p {
+        m.add_parameter(x);
+    }
+    m
+};   
+
+//------------------------- Class Method Parameter -------------------------
+
+ClassMetParameter: Parameter<MethodId<ClassId>> = <i:Identifier> ":" <t:Type> => {
+    let position = Some(i.position.clone());
+    Parameter::new(i.name, t, position)
+};
+
+ClassMetParameters: Vec<Parameter<MethodId<ClassId>>> = <p:ClassMetParameter> <l:ClassMetParameterNext*> => {
+    let mut parameters = Vec::new();
+    parameters.push(p);
+    parameters.extend(l);
+    parameters
+};
+
+ClassMetParameterNext: Parameter<MethodId<ClassId>> = "," <p:ClassMetParameter> => p;
+
+//------------------------- Instance -------------------------
+
+Instance: () = "inst" <l:Identifiers> ":" <t:Type> => {
+    for i in l {
+        let position = Some(i.position.clone());
+        let inst = Instance::new(i.name, t.clone(), position);
+        parser.problem.add_instance(inst);
+    }
+}; 
 
 //------------------------- Variable -------------------------
 

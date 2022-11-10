@@ -1,48 +1,6 @@
 use super::*;
 use crate::parser::Position;
 
-//------------------------- Structure Ref -------------------------
-
-#[derive(Clone, PartialEq, Eq, Debug, Hash)]
-pub enum StructureRef {
-    Resolved(StructureId, Option<Position>),
-    Unresolved(String, Option<Position>),
-}
-
-impl StructureRef {
-    pub fn resolved(&self) -> StructureId {
-        match self {
-            StructureRef::Resolved(id, _) => *id,
-            StructureRef::Unresolved(_, _) => panic!(),
-        }
-    }
-
-    pub fn resolve(&self, problem: &Problem) -> Result<Self, Error> {
-        match self {
-            Self::Resolved(_, _) => Ok(self.clone()),
-            Self::Unresolved(name, position) => {
-                if let Some(structure) = problem.find_structure(name) {
-                    Ok(Self::Resolved(structure.id(), position.clone()))
-                } else {
-                    Err(Error::Instance {
-                        name: name.clone(),
-                        position: position.clone(),
-                    })
-                }
-            }
-        }
-    }
-}
-
-impl ToLang for StructureRef {
-    fn to_lang(&self, problem: &Problem) -> String {
-        match self {
-            StructureRef::Resolved(id, _) => problem.get(*id).unwrap().name().to_string(),
-            StructureRef::Unresolved(name, _) => format!("{}?", name),
-        }
-    }
-}
-
 //------------------------- Id -------------------------
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Hash)]
@@ -60,44 +18,20 @@ impl Id for InstanceId {
 pub struct Instance {
     id: InstanceId,
     name: String,
-    structure: StructureRef,
+    typ: Type,
     position: Option<Position>,
 }
 
 impl Instance {
-    pub fn new<S: Into<String>>(
-        name: S,
-        structure: StructureRef,
-        position: Option<Position>,
-    ) -> Self {
+    pub fn new<S: Into<String>>(name: S, typ: Type, position: Option<Position>) -> Self {
         let id = InstanceId::empty();
         let name = name.into();
         Self {
             id,
             name,
-            structure,
+            typ,
             position,
         }
-    }
-
-    pub fn structure(&self) -> &StructureRef {
-        &self.structure
-    }
-
-    pub fn typ(&self) -> Type {
-        Type::Structure(self.structure.resolved())
-    }
-
-    //---------- Resolve ----------
-
-    pub fn resolve_instance(&self, problem: &Problem) -> Result<Instance, Error> {
-        let structure = self.structure.resolve(problem)?;
-        Ok(Instance {
-            id: self.id(),
-            name: self.name.clone(),
-            structure,
-            position: self.position.clone(),
-        })
     }
 }
 
@@ -125,10 +59,30 @@ impl Named<InstanceId> for Instance {
     }
 }
 
+//------------------------- WithType -------------------------
+
+impl WithType for Instance {
+    fn typ(&self) -> &Type {
+        &self.typ
+    }
+
+    fn set_type(&mut self, typ: Type) {
+        self.typ = typ
+    }
+
+    fn resolve_type_children(&mut self, entries: &TypeEntries) -> Result<(), Error> {
+        Ok(())
+    }
+
+    fn check_interval_children(&self, problem: &Problem) -> Result<(), Error> {
+        Ok(())
+    }
+}
+
 //------------------------- ToLang -------------------------
 
 impl ToLang for Instance {
     fn to_lang(&self, problem: &Problem) -> String {
-        format!("inst {}: {}", self.name(), self.structure.to_lang(problem))
+        format!("inst {}: {}", self.name(), self.typ.to_lang(problem))
     }
 }

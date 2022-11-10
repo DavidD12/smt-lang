@@ -62,7 +62,12 @@ pub struct StructureValue {
 impl StructureValue {
     pub fn new(smt: &Smt, model: &z3::Model, structure: StructureId) -> Self {
         let mut instances = Vec::new();
-        for instance in smt.problem().structure_instances(structure) {
+        for instance in smt
+            .problem()
+            .get(structure)
+            .unwrap()
+            .instances(smt.problem())
+        {
             instances.push(InstanceValue::new(smt, model, structure, instance));
         }
         Self {

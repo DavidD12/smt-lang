@@ -23,6 +23,7 @@ impl Id for StructureId {
 pub struct Structure {
     id: StructureId,
     name: String,
+    typ: Type,
     attributes: Vec<Attribute<StructureId>>,
     methods: Vec<Method<StructureId>>,
     position: Option<Position>,
@@ -35,6 +36,7 @@ impl Structure {
         Self {
             id,
             name,
+            typ: Type::Structure(id),
             attributes: vec![],
             methods: vec![],
             position,
@@ -96,10 +98,25 @@ impl Structure {
         self.methods.iter().find(|x| x.name() == name)
     }
 
-    //---------- Type ----------
+    //---------- Instance ----------
 
-    pub fn typ(&self) -> Type {
-        Type::Structure(self.id)
+    pub fn instances(&self, problem: &Problem) -> Vec<InstanceId> {
+        let mut v = Vec::new();
+        for inst in problem.instances().iter() {
+            match inst.typ() {
+                Type::Structure(id) => {
+                    if *id == self.id() {
+                        v.push(inst.id());
+                    }
+                }
+                _ => {}
+            }
+        }
+        v
+    }
+
+    pub fn is_empty(&self, problem: &Problem) -> bool {
+        self.instances(problem).is_empty()
     }
 
     //---------- Duplicate ----------
@@ -121,16 +138,6 @@ impl Structure {
 
     //---------- Resolve ----------
 
-    pub fn resolve_type(&mut self, entries: &TypeEntries) -> Result<(), Error> {
-        for x in self.attributes.iter_mut() {
-            x.resolve_type(&entries)?;
-        }
-        for x in self.methods.iter_mut() {
-            x.resolve_type(&entries)?;
-        }
-        Ok(())
-    }
-
     pub fn resolve_expr(&self, problem: &Problem, entries: &Entries) -> Result<Structure, Error> {
         // Attribute
         let mut attributes = Vec::new();
@@ -148,22 +155,11 @@ impl Structure {
         Ok(Structure {
             id: self.id,
             name: self.name.clone(),
+            typ: self.typ.clone(),
             attributes,
             methods,
             position: self.position.clone(),
         })
-    }
-
-    //---------- Interval ----------
-
-    pub fn check_interval(&self, problem: &Problem) -> Result<(), Error> {
-        for x in self.attributes.iter() {
-            x.check_interval(problem)?;
-        }
-        for x in self.methods.iter() {
-            x.check_interval(problem)?;
-        }
-        Ok(())
     }
 
     //---------- Parameter Size ----------
@@ -217,6 +213,15 @@ impl Named<StructureId> for Structure {
 
     fn set_id(&mut self, id: StructureId) {
         self.id = id;
+        self.typ = Type::Structure(id);
+        for (n, x) in self.attributes.iter_mut().enumerate() {
+            let id = AttributeId(id, n);
+            x.set_id(id);
+        }
+        for (n, x) in self.methods.iter_mut().enumerate() {
+            let id = MethodId(id, n);
+            x.set_id(id);
+        }
     }
 
     fn name(&self) -> &str {
@@ -235,11 +240,42 @@ impl ToLang for Structure {
         }
         // Method
         for x in self.methods.iter() {
-            s.push_str(&format!("{}\n", &x.to_lang(problem)));
+            s.push_str(&format!("{}", &x.to_lang(problem)));
+            s.push_str(&format!("// {:?}\n", x.id()));
         }
         //
         s.push_str("}\n");
         s
+    }
+}
+
+//------------------------- With Type -------------------------
+
+impl WithType for Structure {
+    fn typ(&self) -> &Type {
+        &self.typ
+    }
+
+    fn set_type(&mut self, _: Type) {}
+
+    fn resolve_type_children(&mut self, entries: &TypeEntries) -> Result<(), Error> {
+        for x in self.attributes.iter_mut() {
+            x.resolve_type(&entries)?;
+        }
+        for x in self.methods.iter_mut() {
+            x.resolve_type(&entries)?;
+        }
+        Ok(())
+    }
+
+    fn check_interval_children(&self, problem: &Problem) -> Result<(), Error> {
+        for x in self.attributes.iter() {
+            x.check_interval(problem)?;
+        }
+        for x in self.methods.iter() {
+            x.check_interval(problem)?;
+        }
+        Ok(())
     }
 }
 

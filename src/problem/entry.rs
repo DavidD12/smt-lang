@@ -10,10 +10,13 @@ pub struct SelfEntry<T: Id>(PhantomData<T>);
 pub enum EntryType {
     Instance(InstanceId),
     Variable(VariableId),
-    // Function(FunctionId),
     FunParam(ParameterId<FunctionId>),
+    //
     StrucSelf(StructureId),
     StrucMetParam(ParameterId<MethodId<StructureId>>),
+    //
+    ClassSelf(ClassId),
+    ClassMetParam(ParameterId<MethodId<ClassId>>),
 }
 
 //------------------------- Entry -------------------------

@@ -18,8 +18,10 @@ impl Solution {
         // Structures
         let mut structures = HashMap::new();
         for structure in smt.problem().structures().iter() {
-            let value = StructureValue::new(smt, model, structure.id());
-            structures.insert(structure.id(), value);
+            if !structure.attributes().is_empty() || !structure.methods().is_empty() {
+                let value = StructureValue::new(smt, model, structure.id());
+                structures.insert(structure.id(), value);
+            }
         }
         // Variables
         let mut variables = HashMap::new();

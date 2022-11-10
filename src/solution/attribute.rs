@@ -16,7 +16,7 @@ impl AttributeValue<StructureId> {
         instance: InstanceId,
         attribute: AttributeId<StructureId>,
     ) -> Self {
-        let e = Expr::StrucInstance(instance, None);
+        let e = Expr::Instance(instance, None);
         let expr = Expr::StrucAttribute(Box::new(e), attribute, None);
         let value = Value::new(smt, model, &expr);
         Self {

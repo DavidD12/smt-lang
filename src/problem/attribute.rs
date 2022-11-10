@@ -115,6 +115,34 @@ impl WithExpr for Attribute<StructureId> {
     }
 }
 
+impl WithExpr for Attribute<ClassId> {
+    fn expr(&self) -> &Option<Expr> {
+        &self.expr
+    }
+
+    fn clear_expr(&mut self) {
+        self.expr = None;
+    }
+
+    fn new_expr(&self, expr: Option<Expr>) -> Self {
+        Self {
+            id: self.id,
+            name: self.name.clone(),
+            typ: self.typ.clone(),
+            expr,
+            position: self.position.clone(),
+        }
+    }
+
+    fn entries(&self) -> Entries {
+        let AttributeId(class_id, _) = self.id();
+        Entries::new(vec![Entry::new(
+            "self".to_string(),
+            EntryType::ClassSelf(class_id),
+        )])
+    }
+}
+
 //------------------------- ToLang -------------------------
 
 impl<T: Id> ToLang for Attribute<T> {

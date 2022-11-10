@@ -118,6 +118,10 @@ impl<T: Id> Named<MethodId<T>> for Method<T> {
 
     fn set_id(&mut self, id: MethodId<T>) {
         self.id = id;
+        for (n, x) in self.parameters.iter_mut().enumerate() {
+            let id = ParameterId(id, n);
+            x.set_id(id);
+        }
     }
 
     fn name(&self) -> &str {
@@ -185,6 +189,43 @@ impl WithExpr for Method<StructureId> {
         v.push(Entry::new(
             "self".to_string(),
             EntryType::StrucSelf(structure_id),
+        ));
+        Entries::new(v)
+    }
+}
+
+impl WithExpr for Method<ClassId> {
+    fn expr(&self) -> &Option<Expr> {
+        &self.expr
+    }
+
+    fn clear_expr(&mut self) {
+        self.expr = None;
+    }
+
+    fn new_expr(&self, expr: Option<Expr>) -> Self {
+        Self {
+            id: self.id,
+            name: self.name.clone(),
+            parameters: self.parameters.clone(),
+            typ: self.typ.clone(),
+            expr,
+            position: self.position.clone(),
+        }
+    }
+
+    fn entries(&self) -> Entries {
+        let mut v = Vec::new();
+        for p in self.parameters.iter() {
+            v.push(Entry::new(
+                p.name().to_string(),
+                EntryType::ClassMetParam(p.id()),
+            ));
+        }
+        let MethodId(class_id, _) = self.id();
+        v.push(Entry::new(
+            "self".to_string(),
+            EntryType::ClassSelf(class_id),
         ));
         Entries::new(v)
     }

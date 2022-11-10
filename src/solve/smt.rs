@@ -10,10 +10,15 @@ pub struct Smt<'a> {
     ctx: &'a z3::Context,
     solver: &'a z3::Solver<'a>,
     // Structure
-    stru_sort: HashMap<StructureId, z3::Sort<'a>>,
-    stru_instances: HashMap<InstanceId, z3::ast::Datatype<'a>>,
-    stru_attributes: HashMap<AttributeId<StructureId>, z3::FuncDecl<'a>>,
-    stru_methods: HashMap<MethodId<StructureId>, z3::FuncDecl<'a>>,
+    struc_sort: HashMap<StructureId, z3::Sort<'a>>,
+    struc_instances: HashMap<InstanceId, z3::ast::Datatype<'a>>,
+    struc_attributes: HashMap<AttributeId<StructureId>, z3::FuncDecl<'a>>,
+    struc_methods: HashMap<MethodId<StructureId>, z3::FuncDecl<'a>>,
+    // Class
+    class_sort: HashMap<ClassId, z3::Sort<'a>>,
+    // class_instances: HashMap<InstanceId, z3::ast::Datatype<'a>>,
+    class_attributes: HashMap<AttributeId<ClassId>, z3::FuncDecl<'a>>,
+    class_methods: HashMap<MethodId<ClassId>, z3::FuncDecl<'a>>,
     // Variable
     bool_variables: HashMap<VariableId, z3::ast::Bool<'a>>,
     int_variables: HashMap<VariableId, z3::ast::Int<'a>>,
@@ -37,10 +42,13 @@ impl<'a> Smt<'a> {
             _cfg: cfg,
             ctx,
             solver,
-            stru_sort: HashMap::new(),
-            stru_instances: HashMap::new(),
-            stru_attributes: HashMap::new(),
-            stru_methods: HashMap::new(),
+            struc_sort: HashMap::new(),
+            struc_instances: HashMap::new(),
+            struc_attributes: HashMap::new(),
+            struc_methods: HashMap::new(),
+            class_sort: HashMap::new(),
+            class_attributes: HashMap::new(),
+            class_methods: HashMap::new(),
             bool_variables: HashMap::new(),
             int_variables: HashMap::new(),
             real_variables: HashMap::new(),
@@ -64,7 +72,12 @@ impl<'a> Smt<'a> {
             Type::Int => z3::Sort::int(self.ctx),
             Type::Real => z3::Sort::real(self.ctx),
             Type::Interval(_, _) => z3::Sort::int(self.ctx),
-            Type::Structure(id) => self.stru_sort.get(id).unwrap().clone(),
+            Type::Structure(id) => {
+                println!("{:?}", id);
+                println!("{:?}", self.struc_sort);
+                self.struc_sort.get(id).unwrap().clone()
+            }
+            Type::Class(id) => self.class_sort.get(id).unwrap().clone(),
             Type::Unresolved(_, _) => panic!(),
             Type::Undefined => panic!(),
         }
@@ -73,7 +86,7 @@ impl<'a> Smt<'a> {
     //------------------------- Structure -------------------------
 
     fn declare_structure(&mut self, structure: &Structure) {
-        let instances = self.problem.structure_instances(structure.id());
+        let instances = structure.instances(self.problem);
         let names = instances
             .iter()
             .map(|i| self.problem.get(*i).unwrap().name().into())
@@ -81,18 +94,21 @@ impl<'a> Smt<'a> {
         let (sort, consts, _testers) =
             z3::Sort::enumeration(self.ctx, structure.name().into(), &names);
         // Sort
-        self.stru_sort.insert(structure.id(), sort);
+        self.struc_sort.insert(structure.id(), sort);
         // Instance
         for (id, f) in instances.iter().zip(consts.into_iter()) {
-            self.stru_instances
+            self.struc_instances
                 .insert(*id, f.apply(&[]).as_datatype().unwrap());
         }
+    }
+
+    fn declare_structure_children(&mut self, structure: &Structure) {
         // Attribute
         for attribute in structure.attributes().iter() {
             let sort = self.structure_sort(structure.id());
             let name = format!("_{}__{}", structure.name(), attribute.name());
             let fun = z3::FuncDecl::new(self.ctx, name, &[sort], &self.to_sort(attribute.typ()));
-            self.stru_attributes.insert(attribute.id(), fun);
+            self.struc_attributes.insert(attribute.id(), fun);
         }
         // Method
         for method in structure.methods().iter() {
@@ -107,7 +123,7 @@ impl<'a> Smt<'a> {
             v.push(sort);
             v.extend(params.iter());
             let met = z3::FuncDecl::new(self.ctx, name, &v, &self.to_sort(method.typ()));
-            self.stru_methods.insert(method.id(), met);
+            self.struc_methods.insert(method.id(), met);
         }
     }
 
@@ -115,16 +131,19 @@ impl<'a> Smt<'a> {
         for x in self.problem.structures().iter() {
             self.declare_structure(x);
         }
+        for x in self.problem.structures().iter() {
+            self.declare_structure_children(x);
+        }
     }
 
     fn define_structure(&mut self, structure: &Structure) {
         // Attribute
         for attribute in structure.attributes().iter() {
             if let Some(expr) = attribute.expr() {
-                for instance in self.problem.structure_instances(structure.id()) {
+                for instance in structure.instances(self.problem).iter() {
                     // Self
                     let self_expr = Expr::StrucSelf(structure.id(), None);
-                    let inst_expr = Expr::StrucInstance(instance, None);
+                    let inst_expr = Expr::Instance(*instance, None);
                     let expr = expr.substitute(&self_expr, &inst_expr);
                     //
                     let att_expr = Expr::StrucAttribute(Box::new(inst_expr), attribute.id(), None);
@@ -136,10 +155,10 @@ impl<'a> Smt<'a> {
         // Method
         for method in structure.methods().iter() {
             if let Some(expr) = method.expr() {
-                for instance in self.problem.structure_instances(structure.id()) {
+                for instance in structure.instances(self.problem).iter() {
                     // Self
                     let self_expr = Expr::StrucSelf(structure.id(), None);
-                    let inst_expr = Expr::StrucInstance(instance, None);
+                    let inst_expr = Expr::Instance(*instance, None);
                     let expr = expr.substitute(&self_expr, &inst_expr.clone());
                     //
                     let params_all = method
@@ -186,11 +205,11 @@ impl<'a> Smt<'a> {
     }
 
     fn structure_sort(&self, id: StructureId) -> &z3::Sort<'a> {
-        &self.stru_sort[&id]
+        &self.struc_sort[&id]
     }
 
     pub fn instance(&self, id: InstanceId) -> &z3::ast::Datatype<'a> {
-        &self.stru_instances[&id]
+        &self.struc_instances[&id]
     }
 
     //------------------------- Variable -------------------------
@@ -219,7 +238,12 @@ impl<'a> Smt<'a> {
                     .assert(&v.le(&z3::ast::Int::from_i64(self.ctx, *max as i64)));
             }
             Type::Structure(id) => {
-                let sort = self.stru_sort.get(&id).unwrap();
+                let sort = self.struc_sort.get(&id).unwrap();
+                let v = z3::ast::Datatype::new_const(self.ctx, variable.name(), sort);
+                self.datatype_variables.insert(variable.id(), v);
+            }
+            Type::Class(id) => {
+                let sort = self.class_sort.get(&id).unwrap();
                 let v = z3::ast::Datatype::new_const(self.ctx, variable.name(), sort);
                 self.datatype_variables.insert(variable.id(), v);
             }
@@ -397,7 +421,7 @@ impl<'a> Smt<'a> {
         id: MethodId<StructureId>,
         parameters: &Vec<Expr>,
     ) -> z3::ast::Dynamic<'a> {
-        let meth = self.stru_methods.get(&id).unwrap();
+        let meth = self.struc_methods.get(&id).unwrap();
         let mut params = Vec::new();
         params.push(self.to_dynamic(expr));
         params.extend(parameters.iter().map(|p| self.to_dynamic(p)));
@@ -469,7 +493,7 @@ impl<'a> Smt<'a> {
             }
             Expr::Variable(id, _) => self.bool_variable(*id).clone(),
             Expr::StrucAttribute(e, id, _) => {
-                let fun = self.stru_attributes.get(&id).unwrap();
+                let fun = self.struc_attributes.get(&id).unwrap();
                 let e = self.to_datatype(e);
                 fun.apply(&[&e]).as_bool().unwrap()
             }
@@ -509,7 +533,7 @@ impl<'a> Smt<'a> {
             }
             Expr::Variable(id, _) => self.int_variable(*id).clone(),
             Expr::StrucAttribute(e, id, _) => {
-                let fun = self.stru_attributes.get(&id).unwrap();
+                let fun = self.struc_attributes.get(&id).unwrap();
                 let e = self.to_datatype(e);
                 fun.apply(&[&e]).as_int().unwrap()
             }
@@ -562,7 +586,7 @@ impl<'a> Smt<'a> {
             }
             Expr::Variable(id, _) => self.real_variable(*id).clone(),
             Expr::StrucAttribute(e, id, _) => {
-                let fun = self.stru_attributes.get(&id).unwrap();
+                let fun = self.struc_attributes.get(&id).unwrap();
                 let e = self.to_datatype(e);
                 fun.apply(&[&e]).as_real().unwrap()
             }
@@ -581,10 +605,10 @@ impl<'a> Smt<'a> {
             Expr::FunctionCall(id, parameters, _) => {
                 self.fun_call(*id, parameters).as_datatype().unwrap()
             }
-            Expr::StrucInstance(id, _) => self.instance(*id).clone(),
+            Expr::Instance(id, _) => self.instance(*id).clone(),
             Expr::Variable(id, _) => self.datatype_variable(*id).clone(),
             Expr::StrucAttribute(e, id, _) => {
-                let fun = self.stru_attributes.get(&id).unwrap();
+                let fun = self.struc_attributes.get(&id).unwrap();
                 let e = self.to_datatype(e);
                 fun.apply(&[&e]).as_datatype().unwrap()
             }
