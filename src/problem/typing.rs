@@ -112,8 +112,15 @@ impl Type {
 
     pub fn is_class(&self) -> bool {
         match self {
-            Type::Structure(_) => true,
+            Type::Class(_) => true,
             _ => false,
+        }
+    }
+
+    pub fn class(&self) -> Option<ClassId> {
+        match self {
+            Type::Class(id) => Some(*id),
+            _ => None,
         }
     }
 
@@ -138,7 +145,7 @@ impl Type {
                     true
                 } else {
                     let c1 = problem.get(*i1).unwrap();
-                    c1.super_types(problem).contains(i2)
+                    c1.super_classes(problem).contains(i2)
                 }
             }
             (x, y) => x == y,

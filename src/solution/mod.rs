@@ -6,6 +6,10 @@ pub use function::*;
 
 pub mod structure;
 pub use structure::*;
+
+pub mod class;
+pub use class::*;
+
 pub mod attribute;
 pub use attribute::*;
 pub mod method;

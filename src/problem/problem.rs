@@ -1,3 +1,5 @@
+use std::collections::VecDeque;
+
 use super::*;
 
 #[derive(Clone)]
@@ -86,6 +88,25 @@ impl Problem {
 
     pub fn find_class(&self, name: &str) -> Option<&Class> {
         self.classes.iter().find(|x| x.name() == name)
+    }
+
+    pub fn classes_ordered(&self) -> Vec<ClassId> {
+        let mut all = self.classes.iter().map(|c| c.id()).collect::<VecDeque<_>>();
+        let mut v = Vec::new();
+        while !all.is_empty() {
+            let id = all.pop_front().unwrap();
+            let c = self.get_class(id).unwrap();
+            if let Some(super_id) = c.super_class() {
+                if v.contains(&super_id) {
+                    v.push(id);
+                } else {
+                    all.push_back(id);
+                }
+            } else {
+                v.push(id);
+            }
+        }
+        v
     }
 
     //---------- Variable ----------
@@ -452,19 +473,6 @@ impl GetFromId<MethodId<StructureId>, Method<StructureId>> for Problem {
         }
     }
 }
-impl GetFromId<ParameterId<MethodId<StructureId>>, Parameter<MethodId<StructureId>>> for Problem {
-    fn get(
-        &self,
-        id: ParameterId<MethodId<StructureId>>,
-    ) -> Option<&Parameter<MethodId<StructureId>>> {
-        let ParameterId(method_id, _) = id;
-        if let Some(method) = self.get(method_id) {
-            method.get(id)
-        } else {
-            None
-        }
-    }
-}
 
 impl GetFromId<ClassId, Class> for Problem {
     fn get(&self, id: ClassId) -> Option<&Class> {
@@ -491,16 +499,6 @@ impl GetFromId<MethodId<ClassId>, Method<ClassId>> for Problem {
         }
     }
 }
-impl GetFromId<ParameterId<MethodId<ClassId>>, Parameter<MethodId<ClassId>>> for Problem {
-    fn get(&self, id: ParameterId<MethodId<ClassId>>) -> Option<&Parameter<MethodId<ClassId>>> {
-        let ParameterId(method_id, _) = id;
-        if let Some(method) = self.get(method_id) {
-            method.get(id)
-        } else {
-            None
-        }
-    }
-}
 
 impl GetFromId<InstanceId, Instance> for Problem {
     fn get(&self, id: InstanceId) -> Option<&Instance> {
@@ -517,16 +515,6 @@ impl GetFromId<VariableId, Variable> for Problem {
 impl GetFromId<FunctionId, Function> for Problem {
     fn get(&self, id: FunctionId) -> Option<&Function> {
         self.get_function(id)
-    }
-}
-impl GetFromId<ParameterId<FunctionId>, Parameter<FunctionId>> for Problem {
-    fn get(&self, id: ParameterId<FunctionId>) -> Option<&Parameter<FunctionId>> {
-        let ParameterId(function_id, _) = id;
-        if let Some(function) = self.get(function_id) {
-            function.get(id)
-        } else {
-            None
-        }
     }
 }
 

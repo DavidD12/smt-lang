@@ -78,7 +78,7 @@ pub enum Expr {
     Binary(Box<Expr>, BinOp, Box<Expr>, Option<Position>),
     //
     Variable(VariableId, Option<Position>),
-    FunParam(ParameterId<FunctionId>, Option<Position>),
+    Parameter(Parameter),
     FunctionCall(FunctionId, Vec<Expr>, Option<Position>),
     //
     Instance(InstanceId, Option<Position>),
@@ -91,15 +91,13 @@ pub enum Expr {
         Vec<Expr>,
         Option<Position>,
     ),
-    StrucMetParam(ParameterId<MethodId<StructureId>>, Option<Position>),
     // Class
     ClassSelf(ClassId, Option<Position>),
     ClassAttribute(Box<Expr>, AttributeId<ClassId>, Option<Position>),
     ClassMetCall(Box<Expr>, MethodId<ClassId>, Vec<Expr>, Option<Position>),
-    ClassMetParam(ParameterId<MethodId<ClassId>>, Option<Position>),
     AsClass(Box<Expr>, ClassId),
     //
-    // Forall(String, Type, Box<Expr>, Option<Position>),
+    // Forall(String, Type, Box<Expr>, Option<Position>), // TODO: LocalVariable
     //
     Unresolved(String, Option<Position>),
     UnresolvedFunCall(String, Vec<Expr>, Option<Position>),
@@ -117,16 +115,14 @@ impl Expr {
             Expr::Binary(_, _, _, p) => p.clone(),
             Expr::FunctionCall(_, _, p) => p.clone(),
             Expr::Variable(_, p) => p.clone(),
-            Expr::FunParam(_, p) => p.clone(),
+            Expr::Parameter(p) => p.position().clone(),
             Expr::Instance(_, p) => p.clone(),
             Expr::StrucSelf(_, p) => p.clone(),
             Expr::StrucAttribute(_, _, p) => p.clone(),
             Expr::StrucMetCall(_, _, _, p) => p.clone(),
-            Expr::StrucMetParam(_, p) => p.clone(),
             Expr::ClassSelf(_, p) => p.clone(),
             Expr::ClassAttribute(_, _, p) => p.clone(),
             Expr::ClassMetCall(_, _, _, p) => p.clone(),
-            Expr::ClassMetParam(_, p) => p.clone(),
             Expr::AsClass(_, _) => None,
             // Expr::Forall(_, _, _, p) => p.clone(),
             Expr::Unresolved(_, p) => p.clone(),
@@ -149,14 +145,13 @@ impl Expr {
                 i1 == i2 && Self::all_same(p1, p2)
             }
             (Expr::Variable(i1, _), Expr::Variable(i2, _)) => i1 == i2,
-            (Expr::FunParam(i1, _), Expr::FunParam(i2, _)) => i1 == i2,
+            (Expr::Parameter(p1), Expr::Parameter(p2)) => p1.name() == p2.name(),
             (Expr::Instance(i1, _), Expr::Instance(i2, _)) => i1 == i2,
             (Expr::StrucSelf(i1, _), Expr::StrucSelf(i2, _)) => i1 == i2,
             (Expr::StrucAttribute(_, i1, _), Expr::StrucAttribute(_, i2, _)) => i1 == i2,
             (Expr::StrucMetCall(e1, i1, a1, _), Expr::StrucMetCall(e2, i2, a2, _)) => {
                 e1.is_same(e2) && i1 == i2 && Self::all_same(a1, a2)
             }
-            (Expr::StrucMetParam(i1, _), Expr::StrucMetParam(i2, _)) => i1 == i2,
             (Expr::AsClass(e1, i1), Expr::AsClass(e2, i2)) => i1 == i2 && e1.is_same(e2),
             _ => false,
         }
@@ -196,7 +191,7 @@ impl Expr {
             }
             //
             Expr::Variable(_, _) => Ok(self.clone()),
-            Expr::FunParam(_, _) => Ok(self.clone()),
+            Expr::Parameter(_) => Ok(self.clone()),
             Expr::Instance(_, _) => Ok(self.clone()),
             Expr::StrucSelf(_, _) => Ok(self.clone()),
             Expr::StrucAttribute(e, id, pos) => {
@@ -212,7 +207,6 @@ impl Expr {
 
                 Ok(Expr::StrucMetCall(Box::new(e), *id, v, pos.clone()))
             }
-            Expr::StrucMetParam(_, _) => Ok(self.clone()),
             //
             Expr::ClassSelf(_, _) => Ok(self.clone()),
             Expr::ClassAttribute(e, id, pos) => {
@@ -228,7 +222,6 @@ impl Expr {
 
                 Ok(Expr::ClassMetCall(Box::new(e), *id, v, pos.clone()))
             }
-            Expr::ClassMetParam(_, _) => Ok(self.clone()),
             Expr::AsClass(e, id) => {
                 let e = e.resolve(problem, entries)?;
                 Ok(Expr::AsClass(Box::new(e), *id))
@@ -236,13 +229,11 @@ impl Expr {
             //
             Expr::Unresolved(name, position) => match entries.get(&name) {
                 Some(entry) => match entry.typ() {
-                    EntryType::Variable(id) => Ok(Self::Variable(id, position.clone())),
-                    EntryType::FunParam(id) => Ok(Self::FunParam(id, position.clone())),
-                    EntryType::Instance(id) => Ok(Expr::Instance(id, position.clone())),
-                    EntryType::StrucSelf(id) => Ok(Expr::StrucSelf(id, position.clone())),
-                    EntryType::StrucMetParam(id) => Ok(Self::StrucMetParam(id, position.clone())),
-                    EntryType::ClassSelf(id) => Ok(Expr::ClassSelf(id, position.clone())),
-                    EntryType::ClassMetParam(id) => Ok(Self::ClassMetParam(id, position.clone())),
+                    EntryType::Variable(id) => Ok(Self::Variable(*id, position.clone())),
+                    EntryType::Parameter(p) => Ok(Self::Parameter(p.clone())),
+                    EntryType::Instance(id) => Ok(Expr::Instance(*id, position.clone())),
+                    EntryType::StrucSelf(id) => Ok(Expr::StrucSelf(*id, position.clone())),
+                    EntryType::ClassSelf(id) => Ok(Expr::ClassSelf(*id, position.clone())),
                 },
                 None => Err(Error::Resolve {
                     category: "identifier".to_string(),
@@ -282,6 +273,8 @@ impl Expr {
                     }
                 } else if let Type::Class(id) = t {
                     if let Some(a) = problem.get(id).unwrap().find_all_attribute(problem, name) {
+                        let AttributeId(class_id, _) = a.id();
+                        let e = Expr::AsClass(Box::new(e), class_id);
                         Ok(Expr::ClassAttribute(Box::new(e), a.id(), pos.clone()))
                     } else {
                         Err(Error::Resolve {
@@ -319,6 +312,8 @@ impl Expr {
                     }
                 } else if let Type::Class(id) = t {
                     if let Some(a) = problem.get(id).unwrap().find_all_method(problem, name) {
+                        let MethodId(class_id, _) = a.id();
+                        let e = Expr::AsClass(Box::new(e), class_id);
                         Ok(Expr::ClassMetCall(Box::new(e), a.id(), v, pos.clone()))
                     } else {
                         Err(Error::Resolve {
@@ -394,15 +389,13 @@ impl Expr {
             Expr::FunctionCall(id, _, _) => problem.get(*id).unwrap().typ().clone(),
             Expr::Instance(id, _) => problem.get(*id).unwrap().typ().clone(),
             Expr::Variable(id, _) => problem.get(*id).unwrap().typ().clone(),
-            Expr::FunParam(id, _) => problem.get(*id).unwrap().typ().clone(),
+            Expr::Parameter(p) => p.typ().clone(),
             Expr::StrucSelf(id, _) => Type::Structure(*id),
             Expr::StrucAttribute(_, id, _) => problem.get(*id).unwrap().typ().clone(),
             Expr::StrucMetCall(_, id, _, _) => problem.get(*id).unwrap().typ().clone(),
-            Expr::StrucMetParam(id, _) => problem.get(*id).unwrap().typ().clone(),
             Expr::ClassSelf(id, _) => Type::Class(*id),
             Expr::ClassAttribute(_, id, _) => problem.get(*id).unwrap().typ().clone(),
             Expr::ClassMetCall(_, id, _, _) => problem.get(*id).unwrap().typ().clone(),
-            Expr::ClassMetParam(id, _) => problem.get(*id).unwrap().typ().clone(),
             Expr::AsClass(_, id) => Type::Class(*id),
             Expr::Unresolved(_, _) => Type::Undefined,
             Expr::UnresolvedFunCall(_, _, _) => Type::Undefined,
@@ -470,7 +463,7 @@ impl Expr {
             }
             Expr::Instance(_, _) => Ok(()),
             Expr::Variable(_, _) => Ok(()),
-            Expr::FunParam(_, _) => Ok(()),
+            Expr::Parameter(_) => Ok(()),
             Expr::StrucSelf(_, _) => Ok(()),
             Expr::StrucAttribute(e, id, _) => {
                 let et = e.typ(problem);
@@ -489,7 +482,6 @@ impl Expr {
                 }
                 Ok(())
             }
-            Expr::StrucMetParam(_, _) => Ok(()),
             Expr::ClassSelf(_, _) => Ok(()),
             Expr::ClassAttribute(e, id, _) => {
                 let et = e.typ(problem);
@@ -508,7 +500,6 @@ impl Expr {
                 }
                 Ok(())
             }
-            Expr::ClassMetParam(_, _) => Ok(()),
             Expr::AsClass(e, id) => {
                 check_subtype_type(problem, &Type::Class(*id), e, &e.typ(problem))
             }
@@ -548,7 +539,7 @@ impl Expr {
             }
             Expr::Instance(_, _) => Ok(()),
             Expr::Variable(_, _) => Ok(()),
-            Expr::FunParam(_, _) => Ok(()),
+            Expr::Parameter(_) => Ok(()),
             Expr::StrucSelf(_, _) => Ok(()),
             Expr::StrucAttribute(e, _, _) => e.check_parameter_size(problem),
             Expr::StrucMetCall(e, id, v, _) => {
@@ -567,7 +558,6 @@ impl Expr {
                     })
                 }
             }
-            Expr::StrucMetParam(_, _) => Ok(()),
             Expr::ClassSelf(_, _) => Ok(()),
             Expr::ClassAttribute(e, _, _) => e.check_parameter_size(problem),
             Expr::ClassMetCall(e, id, v, _) => {
@@ -586,7 +576,6 @@ impl Expr {
                     })
                 }
             }
-            Expr::ClassMetParam(_, _) => Ok(()),
             Expr::AsClass(e, _) => e.check_parameter_size(problem),
             Expr::Unresolved(_, _) => panic!(),
             Expr::UnresolvedFunCall(_, _, _) => panic!(),
@@ -617,7 +606,7 @@ impl Expr {
                 }
                 Expr::Instance(_, _) => self.clone(),
                 Expr::Variable(_, _) => self.clone(),
-                Expr::FunParam(_, _) => self.clone(),
+                Expr::Parameter(_) => self.clone(),
                 Expr::StrucSelf(_, _) => self.clone(),
                 Expr::StrucAttribute(e, id, pos) => {
                     Expr::StrucAttribute(Box::new(e.substitute(old, expr)), *id, pos.clone())
@@ -627,7 +616,6 @@ impl Expr {
                     let args = args.iter().map(|a| a.substitute(old, expr)).collect();
                     Expr::StrucMetCall(Box::new(e), *id, args, pos.clone())
                 }
-                Expr::StrucMetParam(_, _) => self.clone(),
                 Expr::ClassSelf(_, _) => self.clone(),
                 Expr::ClassAttribute(e, id, pos) => {
                     Expr::ClassAttribute(Box::new(e.substitute(old, expr)), *id, pos.clone())
@@ -637,7 +625,6 @@ impl Expr {
                     let args = args.iter().map(|a| a.substitute(old, expr)).collect();
                     Expr::ClassMetCall(Box::new(e), *id, args, pos.clone())
                 }
-                Expr::ClassMetParam(_, _) => self.clone(),
                 Expr::AsClass(e, id) => Expr::AsClass(Box::new(e.substitute(old, expr)), *id),
                 Expr::Unresolved(_, _) => self.clone(),
                 Expr::UnresolvedFunCall(_, _, _) => panic!(),
@@ -743,7 +730,7 @@ impl ToLang for Expr {
             }
             Expr::Instance(id, _) => problem.get(*id).unwrap().name().into(),
             Expr::Variable(id, _) => problem.get(*id).unwrap().name().into(),
-            Expr::FunParam(id, _) => problem.get(*id).unwrap().name().into(),
+            Expr::Parameter(p) => p.name().to_string(),
             Expr::StrucSelf(_, _) => "self".to_string(),
             Expr::StrucAttribute(e, id, _) => {
                 format!(
@@ -764,7 +751,6 @@ impl ToLang for Expr {
                 s.push_str(")");
                 s
             }
-            Expr::StrucMetParam(id, _) => problem.get(*id).unwrap().name().into(),
             Expr::ClassSelf(_, _) => "self".to_string(),
             Expr::ClassAttribute(e, id, _) => {
                 format!(
@@ -785,7 +771,6 @@ impl ToLang for Expr {
                 s.push_str(")");
                 s
             }
-            Expr::ClassMetParam(id, _) => problem.get(*id).unwrap().name().into(),
             Expr::AsClass(e, id) => format!(
                 "({} as {})",
                 e.to_lang(problem),

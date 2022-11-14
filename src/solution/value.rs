@@ -46,6 +46,14 @@ impl Value {
                 .to_string();
             let instance = smt.problem().find_instance(&value).unwrap();
             Value::Instance(instance.id())
+        } else if t.is_class() {
+            let value = model
+                .eval(&smt.to_datatype(expr), true)
+                .unwrap()
+                .to_string();
+            let value = value.split(' ').last().unwrap().replace(")", "");
+            let instance = smt.problem().find_instance(&value).unwrap();
+            Value::Instance(instance.id())
         } else {
             panic!()
         }

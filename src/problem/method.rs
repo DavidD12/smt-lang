@@ -18,7 +18,7 @@ impl<T: Id> Id for MethodId<T> {
 pub struct Method<T: Id> {
     id: MethodId<T>,
     name: String,
-    parameters: Vec<Parameter<MethodId<T>>>,
+    parameters: Vec<Parameter>,
     typ: Type,
     expr: Option<Expr>,
     position: Option<Position>,
@@ -45,26 +45,11 @@ impl<T: Id> Method<T> {
 
     //---------- Parameter ----------
 
-    pub fn add_parameter(
-        &mut self,
-        mut parameter: Parameter<MethodId<T>>,
-    ) -> ParameterId<MethodId<T>> {
-        let id = ParameterId(self.id, self.parameters.len());
-        parameter.set_id(id);
+    pub fn add_parameter(&mut self, parameter: Parameter) {
         self.parameters.push(parameter);
-        id
     }
 
-    pub fn get_parameter(&self, id: ParameterId<MethodId<T>>) -> Option<&Parameter<MethodId<T>>> {
-        let ParameterId(method_id, n) = id;
-        if self.id != method_id {
-            None
-        } else {
-            self.parameters.get(n)
-        }
-    }
-
-    pub fn parameters(&self) -> &Vec<Parameter<MethodId<T>>> {
+    pub fn parameters(&self) -> &Vec<Parameter> {
         &self.parameters
     }
 
@@ -118,10 +103,6 @@ impl<T: Id> Named<MethodId<T>> for Method<T> {
 
     fn set_id(&mut self, id: MethodId<T>) {
         self.id = id;
-        for (n, x) in self.parameters.iter_mut().enumerate() {
-            let id = ParameterId(id, n);
-            x.set_id(id);
-        }
     }
 
     fn name(&self) -> &str {
@@ -182,7 +163,7 @@ impl WithExpr for Method<StructureId> {
         for p in self.parameters.iter() {
             v.push(Entry::new(
                 p.name().to_string(),
-                EntryType::StrucMetParam(p.id()),
+                EntryType::Parameter(p.clone()),
             ));
         }
         let MethodId(structure_id, _) = self.id();
@@ -219,7 +200,7 @@ impl WithExpr for Method<ClassId> {
         for p in self.parameters.iter() {
             v.push(Entry::new(
                 p.name().to_string(),
-                EntryType::ClassMetParam(p.id()),
+                EntryType::Parameter(p.clone()),
             ));
         }
         let MethodId(class_id, _) = self.id();
@@ -250,13 +231,5 @@ impl<T: Id> ToLang for Method<T> {
             s.push_str(&format!(" = {}", e.to_lang(problem)));
         }
         s
-    }
-}
-
-//------------------------- Get From Id -------------------------
-
-impl<T: Id> GetFromId<ParameterId<MethodId<T>>, Parameter<MethodId<T>>> for Method<T> {
-    fn get(&self, id: ParameterId<MethodId<T>>) -> Option<&Parameter<MethodId<T>>> {
-        self.get_parameter(id)
     }
 }

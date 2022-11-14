@@ -7,6 +7,8 @@ use std::collections::HashMap;
 pub struct Solution {
     // Structure
     structures: HashMap<StructureId, StructureValue>,
+    // Structure
+    classes: HashMap<ClassId, ClassValue>,
     // Variable
     variables: HashMap<VariableId, Value>,
     // Function
@@ -21,6 +23,14 @@ impl Solution {
             if !structure.attributes().is_empty() || !structure.methods().is_empty() {
                 let value = StructureValue::new(smt, model, structure.id());
                 structures.insert(structure.id(), value);
+            }
+        }
+        // Classes
+        let mut classes = HashMap::new();
+        for class in smt.problem().classes().iter() {
+            if !class.attributes().is_empty() || !class.methods().is_empty() {
+                let value = ClassValue::new(smt, model, class.id());
+                classes.insert(class.id(), value);
             }
         }
         // Variables
@@ -39,6 +49,7 @@ impl Solution {
         //
         Self {
             structures,
+            classes,
             variables,
             functions,
         }
@@ -53,6 +64,10 @@ impl ToLang for Solution {
         // Structures
         for structure in self.structures.values() {
             s.push_str(&structure.to_lang(problem));
+        }
+        // Classes
+        for class in self.classes.values() {
+            s.push_str(&class.to_lang(problem));
         }
         // Variables
         for variable in problem.variables().iter() {

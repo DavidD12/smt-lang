@@ -1,37 +1,27 @@
 use super::*;
 use crate::parser::Position;
 
-//------------------------- Id -------------------------
-
-#[derive(Clone, Copy, PartialEq, Eq, Debug, Hash)]
-pub struct ParameterId<T: Id>(pub T, pub usize);
-
-impl<T: Id> Id for ParameterId<T> {
-    fn empty() -> Self {
-        Self(T::empty(), 0)
-    }
-}
-
 //------------------------- Parameter -------------------------
 
-#[derive(Clone)]
-pub struct Parameter<T: Id> {
-    id: ParameterId<T>,
+#[derive(Clone, PartialEq, Eq, Hash, Debug)]
+pub struct Parameter {
     name: String,
     typ: Type,
     position: Option<Position>,
 }
 
-impl<T: Id> Parameter<T> {
+impl Parameter {
     pub fn new<S: Into<String>>(name: S, typ: Type, position: Option<Position>) -> Self {
-        let id = ParameterId::empty();
         let name = name.into();
         Self {
-            id,
             name,
             typ,
             position,
         }
+    }
+
+    pub fn name(&self) -> &str {
+        &self.name
     }
 
     //---------- Bounded ----------
@@ -50,7 +40,7 @@ impl<T: Id> Parameter<T> {
 
 //------------------------- With Type -------------------------
 
-impl<T: Id> WithType for Parameter<T> {
+impl WithType for Parameter {
     fn typ(&self) -> &Type {
         &self.typ
     }
@@ -70,31 +60,15 @@ impl<T: Id> WithType for Parameter<T> {
 
 //------------------------- Postion -------------------------
 
-impl<T: Id> WithPosition for Parameter<T> {
+impl WithPosition for Parameter {
     fn position(&self) -> &Option<Position> {
         &self.position
     }
 }
 
-//------------------------- Named -------------------------
-
-impl<T: Id> Named<ParameterId<T>> for Parameter<T> {
-    fn id(&self) -> ParameterId<T> {
-        self.id
-    }
-
-    fn set_id(&mut self, id: ParameterId<T>) {
-        self.id = id;
-    }
-
-    fn name(&self) -> &str {
-        &self.name
-    }
-}
-
 //------------------------- ToLang -------------------------
 
-impl<T: Id> ToLang for Parameter<T> {
+impl ToLang for Parameter {
     fn to_lang(&self, problem: &Problem) -> String {
         format!("{}: {}", self.name(), self.typ.to_lang(problem))
     }

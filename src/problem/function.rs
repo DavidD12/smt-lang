@@ -18,7 +18,7 @@ impl Id for FunctionId {
 pub struct Function {
     id: FunctionId,
     name: String,
-    parameters: Vec<Parameter<FunctionId>>,
+    parameters: Vec<Parameter>,
     typ: Type,
     expr: Option<Expr>,
     position: Option<Position>,
@@ -45,26 +45,11 @@ impl Function {
 
     //---------- Parameter ----------
 
-    pub fn add_parameter(
-        &mut self,
-        mut parameter: Parameter<FunctionId>,
-    ) -> ParameterId<FunctionId> {
-        let id = ParameterId(self.id, self.parameters.len());
-        parameter.set_id(id);
+    pub fn add_parameter(&mut self, parameter: Parameter) {
         self.parameters.push(parameter);
-        id
     }
 
-    pub fn get_parameter(&self, id: ParameterId<FunctionId>) -> Option<&Parameter<FunctionId>> {
-        let ParameterId(function_id, n) = id;
-        if self.id != function_id {
-            None
-        } else {
-            self.parameters.get(n)
-        }
-    }
-
-    pub fn parameters(&self) -> &Vec<Parameter<FunctionId>> {
+    pub fn parameters(&self) -> &Vec<Parameter> {
         &self.parameters
     }
 
@@ -178,7 +163,7 @@ impl WithExpr for Function {
         for p in self.parameters.iter() {
             v.push(Entry::new(
                 p.name().to_string(),
-                EntryType::FunParam(p.id()),
+                EntryType::Parameter(p.clone()),
             ));
         }
         Entries::new(v)
@@ -204,13 +189,5 @@ impl ToLang for Function {
             s.push_str(&format!(" = {}", e.to_lang(problem)));
         }
         s
-    }
-}
-
-//------------------------- Get From Id -------------------------
-
-impl GetFromId<ParameterId<FunctionId>, Parameter<FunctionId>> for Function {
-    fn get(&self, id: ParameterId<FunctionId>) -> Option<&Parameter<FunctionId>> {
-        self.get_parameter(id)
     }
 }

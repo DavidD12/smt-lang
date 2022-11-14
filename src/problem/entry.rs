@@ -1,22 +1,17 @@
-use std::marker::PhantomData;
-
 use super::*;
 
 //------------------------- Entry Type -------------------------
 
-pub struct SelfEntry<T: Id>(PhantomData<T>);
-
-#[derive(Copy, Clone, PartialEq, Eq, Hash, Debug)]
+#[derive(Clone, PartialEq, Eq, Hash, Debug)]
 pub enum EntryType {
     Instance(InstanceId),
     Variable(VariableId),
-    FunParam(ParameterId<FunctionId>),
+    //
+    Parameter(Parameter),
     //
     StrucSelf(StructureId),
-    StrucMetParam(ParameterId<MethodId<StructureId>>),
     //
     ClassSelf(ClassId),
-    ClassMetParam(ParameterId<MethodId<ClassId>>),
 }
 
 //------------------------- Entry -------------------------
@@ -36,8 +31,8 @@ impl Entry {
         &self.name
     }
 
-    pub fn typ(&self) -> EntryType {
-        self.typ
+    pub fn typ(&self) -> &EntryType {
+        &self.typ
     }
 }
 
@@ -53,22 +48,6 @@ impl FromId<VariableId> for Entry {
     fn from_id(problem: &Problem, id: VariableId) -> Self {
         let name = problem.get(id).unwrap().name().into();
         let typ = EntryType::Variable(id);
-        Self { name, typ }
-    }
-}
-
-impl FromId<ParameterId<FunctionId>> for Entry {
-    fn from_id(problem: &Problem, id: ParameterId<FunctionId>) -> Self {
-        let name = problem.get(id).unwrap().name().into();
-        let typ = EntryType::FunParam(id);
-        Self { name, typ }
-    }
-}
-
-impl FromId<ParameterId<MethodId<StructureId>>> for Entry {
-    fn from_id(problem: &Problem, id: ParameterId<MethodId<StructureId>>) -> Self {
-        let name = problem.get(id).unwrap().name().into();
-        let typ = EntryType::StrucMetParam(id);
         Self { name, typ }
     }
 }

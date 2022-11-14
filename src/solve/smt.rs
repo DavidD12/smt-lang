@@ -1,5 +1,6 @@
 use crate::combine::Combine;
 use crate::problem::*;
+use crate::solution::call;
 use std::collections::HashMap;
 use z3::ast::Ast;
 
@@ -15,8 +16,10 @@ pub struct Smt<'a> {
     struc_attributes: HashMap<AttributeId<StructureId>, z3::FuncDecl<'a>>,
     struc_methods: HashMap<MethodId<StructureId>, z3::FuncDecl<'a>>,
     // Class
-    class_sort: HashMap<ClassId, z3::Sort<'a>>,
-    // class_instances: HashMap<InstanceId, z3::ast::Datatype<'a>>,
+    class_instances_sort: HashMap<ClassId, z3::Sort<'a>>,
+    class_instances: HashMap<InstanceId, z3::ast::Datatype<'a>>,
+    class_datatype_sort: HashMap<ClassId, z3::DatatypeSort<'a>>,
+    class_sort_variants: HashMap<ClassId, HashMap<ClassId, usize>>,
     class_attributes: HashMap<AttributeId<ClassId>, z3::FuncDecl<'a>>,
     class_methods: HashMap<MethodId<ClassId>, z3::FuncDecl<'a>>,
     // Variable
@@ -42,13 +45,19 @@ impl<'a> Smt<'a> {
             _cfg: cfg,
             ctx,
             solver,
+            //
             struc_sort: HashMap::new(),
             struc_instances: HashMap::new(),
             struc_attributes: HashMap::new(),
             struc_methods: HashMap::new(),
-            class_sort: HashMap::new(),
+            //
+            class_instances_sort: HashMap::new(),
+            class_instances: HashMap::new(),
+            class_datatype_sort: HashMap::new(),
+            class_sort_variants: HashMap::new(),
             class_attributes: HashMap::new(),
             class_methods: HashMap::new(),
+            //
             bool_variables: HashMap::new(),
             int_variables: HashMap::new(),
             real_variables: HashMap::new(),
@@ -77,7 +86,7 @@ impl<'a> Smt<'a> {
                 println!("{:?}", self.struc_sort);
                 self.struc_sort.get(id).unwrap().clone()
             }
-            Type::Class(id) => self.class_sort.get(id).unwrap().clone(),
+            Type::Class(id) => self.class_datatype_sort.get(id).unwrap().sort.clone(),
             Type::Unresolved(_, _) => panic!(),
             Type::Undefined => panic!(),
         }
@@ -102,7 +111,7 @@ impl<'a> Smt<'a> {
         }
     }
 
-    fn declare_structure_children(&mut self, structure: &Structure) {
+    fn declare_structure_elements(&mut self, structure: &Structure) {
         // Attribute
         for attribute in structure.attributes().iter() {
             let sort = self.structure_sort(structure.id());
@@ -124,15 +133,6 @@ impl<'a> Smt<'a> {
             v.extend(params.iter());
             let met = z3::FuncDecl::new(self.ctx, name, &v, &self.to_sort(method.typ()));
             self.struc_methods.insert(method.id(), met);
-        }
-    }
-
-    fn declare_structures(&mut self) {
-        for x in self.problem.structures().iter() {
-            self.declare_structure(x);
-        }
-        for x in self.problem.structures().iter() {
-            self.declare_structure_children(x);
         }
     }
 
@@ -169,7 +169,7 @@ impl<'a> Smt<'a> {
                     let param_expr = method
                         .parameters()
                         .iter()
-                        .map(|p| Expr::StrucMetParam(p.id(), p.position().clone()))
+                        .map(|p| Expr::Parameter(p.clone()))
                         .collect::<Vec<_>>();
                     let mut combine = Combine::new(params_all);
                     loop {
@@ -198,6 +198,15 @@ impl<'a> Smt<'a> {
         }
     }
 
+    fn declare_structures(&mut self) {
+        for x in self.problem.structures().iter() {
+            self.declare_structure(x);
+        }
+        for x in self.problem.structures().iter() {
+            self.declare_structure_elements(x);
+        }
+    }
+
     fn define_structures(&mut self) {
         for x in self.problem.structures().iter() {
             self.define_structure(x);
@@ -208,8 +217,188 @@ impl<'a> Smt<'a> {
         &self.struc_sort[&id]
     }
 
-    pub fn instance(&self, id: InstanceId) -> &z3::ast::Datatype<'a> {
+    pub fn struc_instance(&self, id: InstanceId) -> &z3::ast::Datatype<'a> {
         &self.struc_instances[&id]
+    }
+
+    //------------------------- Class -------------------------
+
+    fn declare_class_instances(&mut self, class: &Class) {
+        let instances = class.instances(self.problem);
+        let names = instances
+            .iter()
+            .map(|i| self.problem.get(*i).unwrap().name().into())
+            .collect::<Vec<_>>();
+        let name = format!("_{}_", class.name());
+        let (sort, consts, _testers) = z3::Sort::enumeration(self.ctx, name.into(), &names);
+        // Sort
+        self.class_instances_sort.insert(class.id(), sort);
+        // Instance
+        for (id, f) in instances.iter().zip(consts.into_iter()) {
+            self.class_instances
+                .insert(*id, f.apply(&[]).as_datatype().unwrap());
+        }
+    }
+
+    fn declare_class(&mut self, class: &Class) {
+        let mut builder = z3::DatatypeBuilder::new(self.ctx, class.name());
+        let mut classes = vec![class];
+        let mut map = HashMap::new();
+        // Current Class
+        let name = format!("_{}", class.name());
+        let field_name = "objects";
+        let field_sort = self.class_instances_sort.get(&class.id()).unwrap();
+        builder = builder.variant(
+            &name,
+            vec![(field_name, z3::DatatypeAccessor::Sort(field_sort.clone()))],
+        );
+        map.insert(class.id(), map.len());
+        // Sub Classes
+        for id in class.direct_sub_classes(self.problem).into_iter() {
+            let c = self.problem.get(id).unwrap();
+            let name = format!("_{}_{}_", class.name(), c.name());
+            let field_name = "objects";
+            let field_sort = &self.class_datatype_sort.get(&id).unwrap().sort;
+            builder = builder.variant(
+                &name,
+                vec![(field_name, z3::DatatypeAccessor::Sort(field_sort.clone()))],
+            );
+            map.insert(id, map.len());
+        }
+        let datatype_sort = builder.finish();
+        self.class_sort_variants.insert(class.id(), map);
+        self.class_datatype_sort.insert(class.id(), datatype_sort);
+    }
+
+    fn declare_class_elements(&mut self, class: &Class) {
+        // Attribute
+        for attribute in class.attributes().iter() {
+            let sort = self.class_sort(class.id());
+            let name = format!("_{}__{}", class.name(), attribute.name());
+            let fun = z3::FuncDecl::new(self.ctx, name, &[sort], &self.to_sort(attribute.typ()));
+            self.class_attributes.insert(attribute.id(), fun);
+        }
+        // Method
+        for method in class.methods().iter() {
+            let sort = self.class_sort(class.id());
+            let name = format!("_{}__{}", class.name(), method.name());
+            let params = method
+                .parameters()
+                .iter()
+                .map(|p| self.to_sort(&p.typ()))
+                .collect::<Vec<_>>();
+            let mut v = Vec::new();
+            v.push(sort);
+            v.extend(params.iter());
+            let met = z3::FuncDecl::new(self.ctx, name, &v, &self.to_sort(method.typ()));
+            self.class_methods.insert(method.id(), met);
+        }
+    }
+
+    fn define_class(&mut self, class: &Class) {
+        // Attribute
+        for attribute in class.attributes().iter() {
+            if let Some(expr) = attribute.expr() {
+                for instance in class.instances(self.problem).iter() {
+                    // Self
+                    let self_expr = Expr::ClassSelf(class.id(), None);
+                    let inst_expr = Expr::Instance(*instance, None);
+                    let expr = expr.substitute(&self_expr, &inst_expr);
+                    //
+                    let att_expr = Expr::ClassAttribute(Box::new(inst_expr), attribute.id(), None);
+                    let ass = Expr::Binary(Box::new(att_expr), BinOp::Eq, Box::new(expr), None);
+                    self.solver.assert(&self.to_bool(&ass));
+                }
+            }
+        }
+        // Method
+        for method in class.methods().iter() {
+            if let Some(expr) = method.expr() {
+                for instance in class.instances(self.problem).iter() {
+                    // Self
+                    let self_expr = Expr::ClassSelf(class.id(), None);
+                    let inst_expr = Expr::Instance(*instance, None);
+                    let expr = expr.substitute(&self_expr, &inst_expr.clone());
+                    //
+                    let params_all = method
+                        .parameters()
+                        .iter()
+                        .map(|p| p.typ().all(self.problem))
+                        .collect();
+                    let param_expr = method
+                        .parameters()
+                        .iter()
+                        .map(|p| Expr::Parameter(p.clone()))
+                        .collect::<Vec<_>>();
+                    let mut combine = Combine::new(params_all);
+                    loop {
+                        let values = combine.values();
+                        let all = param_expr
+                            .clone()
+                            .into_iter()
+                            .zip(values.clone())
+                            .collect::<Vec<_>>();
+                        let e = expr.substitute_all(all);
+                        let call = Expr::ClassMetCall(
+                            Box::new(inst_expr.clone()),
+                            method.id(),
+                            values,
+                            None,
+                        );
+                        let cond = Expr::Binary(Box::new(call), BinOp::Eq, Box::new(e), None);
+                        self.solver.assert(&self.to_bool(&cond));
+                        //
+                        if !combine.step() {
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    fn declare_classes(&mut self) {
+        let classes = self
+            .problem
+            .classes_ordered()
+            .iter()
+            .rev()
+            .map(|c| self.problem.get(*c).unwrap())
+            .collect::<Vec<_>>();
+        for x in classes.iter() {
+            self.declare_class_instances(x);
+        }
+        for x in classes.iter() {
+            self.declare_class(x);
+        }
+        for x in classes.iter() {
+            self.declare_class_elements(x);
+        }
+    }
+
+    fn define_classes(&mut self) {
+        for x in self.problem.classes().iter() {
+            self.define_class(x);
+        }
+    }
+
+    pub fn class_sort(&self, id: ClassId) -> &z3::Sort<'a> {
+        &self.class_datatype_sort.get(&id).unwrap().sort
+    }
+
+    pub fn class_object(&self, instance: &Instance) -> z3::ast::Datatype<'a> {
+        let inst = self.class_instances.get(&instance.id()).unwrap();
+        let class_id = instance.typ().class().unwrap();
+        let variant_id = self
+            .class_sort_variants
+            .get(&class_id)
+            .unwrap()
+            .get(&class_id)
+            .unwrap();
+        let value = self.class_datatype_sort.get(&class_id).unwrap().variants[*variant_id]
+            .constructor
+            .apply(&[inst]);
+        value.as_datatype().unwrap()
     }
 
     //------------------------- Variable -------------------------
@@ -243,7 +432,7 @@ impl<'a> Smt<'a> {
                 self.datatype_variables.insert(variable.id(), v);
             }
             Type::Class(id) => {
-                let sort = self.class_sort.get(&id).unwrap();
+                let sort = &self.class_datatype_sort.get(&id).unwrap().sort;
                 let v = z3::ast::Datatype::new_const(self.ctx, variable.name(), sort);
                 self.datatype_variables.insert(variable.id(), v);
             }
@@ -316,7 +505,7 @@ impl<'a> Smt<'a> {
             let param_expr = function
                 .parameters()
                 .iter()
-                .map(|p| Expr::FunParam(p.id(), p.position().clone()))
+                .map(|p| Expr::Parameter(p.clone()))
                 .collect::<Vec<_>>();
             let mut combine = Combine::new(params_all);
             loop {
@@ -432,6 +621,23 @@ impl<'a> Smt<'a> {
         meth.apply(&params)
     }
 
+    fn class_met_call(
+        &self,
+        expr: &Expr,
+        id: MethodId<ClassId>,
+        parameters: &Vec<Expr>,
+    ) -> z3::ast::Dynamic<'a> {
+        let meth = self.class_methods.get(&id).unwrap();
+        let mut params = Vec::new();
+        params.push(self.to_dynamic(expr));
+        params.extend(parameters.iter().map(|p| self.to_dynamic(p)));
+        let params = params
+            .iter()
+            .map(|p| p as &dyn z3::ast::Ast)
+            .collect::<Vec<_>>();
+        meth.apply(&params)
+    }
+
     pub fn to_bool(&self, expr: &Expr) -> z3::ast::Bool<'a> {
         match expr {
             Expr::BoolValue(value, _) => z3::ast::Bool::from_bool(self.ctx, *value),
@@ -487,21 +693,37 @@ impl<'a> Smt<'a> {
                         BinOp::Ne => z3::ast::Bool::not(&l._eq(&r)),
                         _ => panic!(),
                     }
+                } else if t.is_class() {
+                    let l = self.to_datatype(l);
+                    let r = self.to_datatype(r);
+                    match op {
+                        BinOp::Eq => l._eq(&r),
+                        BinOp::Ne => z3::ast::Bool::not(&l._eq(&r)),
+                        _ => panic!(),
+                    }
                 } else {
-                    panic!()
+                    panic!("{:?}", t)
                 }
             }
             Expr::Variable(id, _) => self.bool_variable(*id).clone(),
+            Expr::FunctionCall(id, parameters, _) => {
+                self.fun_call(*id, parameters).as_bool().unwrap()
+            }
             Expr::StrucAttribute(e, id, _) => {
                 let fun = self.struc_attributes.get(&id).unwrap();
                 let e = self.to_datatype(e);
                 fun.apply(&[&e]).as_bool().unwrap()
             }
-            Expr::FunctionCall(id, parameters, _) => {
-                self.fun_call(*id, parameters).as_bool().unwrap()
-            }
             Expr::StrucMetCall(e, id, parameters, _) => {
                 self.struc_met_call(e, *id, parameters).as_bool().unwrap()
+            }
+            Expr::ClassAttribute(e, id, _) => {
+                let fun = self.class_attributes.get(&id).unwrap();
+                let e = self.to_datatype(e);
+                fun.apply(&[&e]).as_bool().unwrap()
+            }
+            Expr::ClassMetCall(e, id, parameters, _) => {
+                self.class_met_call(e, *id, parameters).as_bool().unwrap()
             }
             _ => panic!("to_bool {:?}", expr),
         }
@@ -532,16 +754,24 @@ impl<'a> Smt<'a> {
                 }
             }
             Expr::Variable(id, _) => self.int_variable(*id).clone(),
+            Expr::FunctionCall(id, parameters, _) => {
+                self.fun_call(*id, parameters).as_int().unwrap()
+            }
             Expr::StrucAttribute(e, id, _) => {
                 let fun = self.struc_attributes.get(&id).unwrap();
                 let e = self.to_datatype(e);
                 fun.apply(&[&e]).as_int().unwrap()
             }
-            Expr::FunctionCall(id, parameters, _) => {
-                self.fun_call(*id, parameters).as_int().unwrap()
-            }
             Expr::StrucMetCall(e, id, parameters, _) => {
                 self.struc_met_call(e, *id, parameters).as_int().unwrap()
+            }
+            Expr::ClassAttribute(e, id, _) => {
+                let fun = self.class_attributes.get(&id).unwrap();
+                let e = self.to_datatype(e);
+                fun.apply(&[&e]).as_int().unwrap()
+            }
+            Expr::ClassMetCall(e, id, parameters, _) => {
+                self.class_met_call(e, *id, parameters).as_int().unwrap()
             }
             _ => panic!("to_int {:?}", expr),
         }
@@ -585,16 +815,24 @@ impl<'a> Smt<'a> {
                 }
             }
             Expr::Variable(id, _) => self.real_variable(*id).clone(),
+            Expr::FunctionCall(id, parameters, _) => {
+                self.fun_call(*id, parameters).as_real().unwrap()
+            }
             Expr::StrucAttribute(e, id, _) => {
                 let fun = self.struc_attributes.get(&id).unwrap();
                 let e = self.to_datatype(e);
                 fun.apply(&[&e]).as_real().unwrap()
             }
-            Expr::FunctionCall(id, parameters, _) => {
-                self.fun_call(*id, parameters).as_real().unwrap()
-            }
             Expr::StrucMetCall(e, id, parameters, _) => {
                 self.struc_met_call(e, *id, parameters).as_real().unwrap()
+            }
+            Expr::ClassAttribute(e, id, _) => {
+                let fun = self.class_attributes.get(&id).unwrap();
+                let e = self.to_datatype(e);
+                fun.apply(&[&e]).as_real().unwrap()
+            }
+            Expr::ClassMetCall(e, id, parameters, _) => {
+                self.class_met_call(e, *id, parameters).as_real().unwrap()
             }
             _ => panic!("to_real {:?}", expr),
         }
@@ -605,7 +843,16 @@ impl<'a> Smt<'a> {
             Expr::FunctionCall(id, parameters, _) => {
                 self.fun_call(*id, parameters).as_datatype().unwrap()
             }
-            Expr::Instance(id, _) => self.instance(*id).clone(),
+            Expr::Instance(id, _) => {
+                let inst = self.problem.get(*id).unwrap();
+                if inst.typ().is_structure() {
+                    self.struc_instance(*id).clone()
+                } else if inst.typ().is_class() {
+                    self.class_object(inst)
+                } else {
+                    panic!()
+                }
+            }
             Expr::Variable(id, _) => self.datatype_variable(*id).clone(),
             Expr::StrucAttribute(e, id, _) => {
                 let fun = self.struc_attributes.get(&id).unwrap();
@@ -616,8 +863,58 @@ impl<'a> Smt<'a> {
                 .struc_met_call(e, *id, parameters)
                 .as_datatype()
                 .unwrap(),
+            Expr::ClassAttribute(e, id, _) => {
+                let fun = self.class_attributes.get(&id).unwrap();
+                let e = self.to_datatype(e);
+                fun.apply(&[&e]).as_datatype().unwrap()
+            }
+            Expr::ClassMetCall(e, id, parameters, _) => self
+                .class_met_call(e, *id, parameters)
+                .as_datatype()
+                .unwrap(),
+            Expr::AsClass(e, id) => match e.typ(self.problem) {
+                Type::Class(c_id) => self.cast(self.to_datatype(e), c_id, *id),
+                _ => panic!(),
+            },
             _ => panic!("to_datatype {:?}", expr),
         }
+    }
+
+    fn cast(
+        &self,
+        e: z3::ast::Datatype<'a>,
+        e_class: ClassId,
+        class_id: ClassId,
+    ) -> z3::ast::Datatype<'a> {
+        if e_class == class_id {
+            e
+        } else {
+            let super_id = self.problem.get(e_class).unwrap().super_class().unwrap();
+            let e = self.object(e, e_class, super_id);
+            self.cast(e, super_id, class_id)
+        }
+    }
+
+    fn object(
+        &self,
+        e: z3::ast::Datatype<'a>,
+        e_class: ClassId,
+        target_class: ClassId,
+    ) -> z3::ast::Datatype<'a> {
+        let constructor_id = self
+            .class_sort_variants
+            .get(&target_class)
+            .unwrap()
+            .get(&e_class)
+            .unwrap();
+        println!("{:?} -> {:?} : {}", e_class, target_class, constructor_id);
+        let variant = &self
+            .class_datatype_sort
+            .get(&target_class)
+            .unwrap()
+            .variants[*constructor_id];
+        println!("{:?}", variant);
+        variant.constructor.apply(&[&e]).as_datatype().unwrap()
     }
 
     //------------------------- -------------------------
@@ -625,10 +922,12 @@ impl<'a> Smt<'a> {
     pub fn init(&mut self) {
         // Declare
         self.declare_structures();
+        self.declare_classes();
         self.declare_variables();
         self.declare_functions();
         // Define
         self.define_structures();
+        self.define_classes();
         self.define_variables();
         self.define_functions();
         // Constraint

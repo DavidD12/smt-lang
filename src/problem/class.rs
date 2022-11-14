@@ -1,5 +1,3 @@
-use std::collections::HashSet;
-
 use super::*;
 use crate::parser::Position;
 
@@ -68,7 +66,16 @@ impl Class {
         }
     }
 
-    pub fn super_types(&self, problem: &Problem) -> Vec<ClassId> {
+    pub fn direct_sub_classes(&self, problem: &Problem) -> Vec<ClassId> {
+        problem
+            .classes()
+            .iter()
+            .filter(|c| c.super_class() == Some(self.id()))
+            .map(|c| c.id())
+            .collect()
+    }
+
+    pub fn super_classes(&self, problem: &Problem) -> Vec<ClassId> {
         if let Some(c) = self.super_class() {
             let mut v = Vec::new();
             let mut todo = vec![c];
@@ -88,11 +95,11 @@ impl Class {
         }
     }
 
-    pub fn sub_types(&self, problem: &Problem) -> Vec<ClassId> {
+    pub fn sub_classes(&self, problem: &Problem) -> Vec<ClassId> {
         problem
             .classes()
             .iter()
-            .filter(|c| c.super_types(problem).contains(&self.id()))
+            .filter(|c| c.super_classes(problem).contains(&self.id()))
             .map(|c| c.id())
             .collect()
     }
@@ -129,7 +136,7 @@ impl Class {
                 return Some(x.clone());
             }
         }
-        for c in self.super_types(problem).iter() {
+        for c in self.super_classes(problem).iter() {
             let c = problem.get(*c).unwrap();
             for x in c.attributes.iter() {
                 if x.name() == name {
@@ -172,7 +179,7 @@ impl Class {
                 return Some(x.clone());
             }
         }
-        for c in self.super_types(problem).iter() {
+        for c in self.super_classes(problem).iter() {
             let c = problem.get(*c).unwrap();
             for x in c.methods.iter() {
                 if x.name() == name {
@@ -206,7 +213,7 @@ impl Class {
 
     pub fn all_instances(&self, problem: &Problem) -> Vec<InstanceId> {
         let mut v = self.instances(problem).clone();
-        for c in self.sub_types(problem).iter() {
+        for c in self.sub_classes(problem).iter() {
             v.extend(problem.get(*c).unwrap().instances(problem));
         }
         v

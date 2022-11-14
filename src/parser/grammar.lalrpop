@@ -68,7 +68,7 @@ StrucAttribute: Attribute<StructureId> = <i:Identifier> ":" <t:Type> <e:Assign?>
 
 //------------------------- Structure Method -------------------------
 
-StrucMethod: Method<StructureId> = <i:Identifier> "(" <p:StrucMetParameters> ")" ":" <t:Type> <e:Assign?> => {
+StrucMethod: Method<StructureId> = <i:Identifier> "(" <p:Parameters> ")" ":" <t:Type> <e:Assign?> => {
     let position = Some(i.position.clone());
     let mut m = Method::new(i.name, t, e, position);
     for x in p {
@@ -76,22 +76,6 @@ StrucMethod: Method<StructureId> = <i:Identifier> "(" <p:StrucMetParameters> ")"
     }
     m
 };   
-
-//------------------------- Structure Method Parameter -------------------------
-
-StrucMetParameter: Parameter<MethodId<StructureId>> = <i:Identifier> ":" <t:Type> => {
-    let position = Some(i.position.clone());
-    Parameter::new(i.name, t, position)
-};
-
-StrucMetParameters: Vec<Parameter<MethodId<StructureId>>> = <p:StrucMetParameter> <l:StrucMetParameterNext*> => {
-    let mut parameters = Vec::new();
-    parameters.push(p);
-    parameters.extend(l);
-    parameters
-};
-
-StrucMetParameterNext: Parameter<MethodId<StructureId>> = "," <p:StrucMetParameter> => p;
 
 //------------------------- Class -------------------------
 
@@ -127,7 +111,7 @@ ClassAttribute: Attribute<ClassId> = <i:Identifier> ":" <t:Type> <e:Assign?> => 
 
 //------------------------- Class Method -------------------------
 
-ClassMethod: Method<ClassId> = <i:Identifier> "(" <p:ClassMetParameters> ")" ":" <t:Type> <e:Assign?> => {
+ClassMethod: Method<ClassId> = <i:Identifier> "(" <p:Parameters> ")" ":" <t:Type> <e:Assign?> => {
     let position = Some(i.position.clone());
     let mut m = Method::new(i.name, t, e, position);
     for x in p {
@@ -135,22 +119,6 @@ ClassMethod: Method<ClassId> = <i:Identifier> "(" <p:ClassMetParameters> ")" ":"
     }
     m
 };   
-
-//------------------------- Class Method Parameter -------------------------
-
-ClassMetParameter: Parameter<MethodId<ClassId>> = <i:Identifier> ":" <t:Type> => {
-    let position = Some(i.position.clone());
-    Parameter::new(i.name, t, position)
-};
-
-ClassMetParameters: Vec<Parameter<MethodId<ClassId>>> = <p:ClassMetParameter> <l:ClassMetParameterNext*> => {
-    let mut parameters = Vec::new();
-    parameters.push(p);
-    parameters.extend(l);
-    parameters
-};
-
-ClassMetParameterNext: Parameter<MethodId<ClassId>> = "," <p:ClassMetParameter> => p;
 
 //------------------------- Instance -------------------------
 
@@ -174,7 +142,7 @@ Variable: () = "let" <l:Identifiers> ":" <t:Type> <e:Assign?> => {
 
 //------------------------- Function -------------------------
 
-Function: () = "let" <i:Identifier> "(" <p:FunParameters> ")" ":" <t:Type> <e:Assign?> => {
+Function: () = "let" <i:Identifier> "(" <p:Parameters> ")" ":" <t:Type> <e:Assign?> => {
     let position = Some(i.position.clone());
     let mut f = Function::new(i.name, t, e, position);
     for x in p {
@@ -183,22 +151,6 @@ Function: () = "let" <i:Identifier> "(" <p:FunParameters> ")" ":" <t:Type> <e:As
     parser.problem.add_function(f);
 };    
 
-//------------------------- Function Parameter -------------------------
-
-FunParameter: Parameter<FunctionId> = <i:Identifier> ":" <t:Type> => {
-    let position = Some(i.position.clone());
-    Parameter::new(i.name, t, position)
-};
-
-FunParameters: Vec<Parameter<FunctionId>> = <p:FunParameter> <l:FunParameterNext*> => {
-    let mut parameters = Vec::new();
-    parameters.push(p);
-    parameters.extend(l);
-    parameters
-};
-
-FunParameterNext: Parameter<FunctionId> = "," <p:FunParameter> => p;
-
 //------------------------- Constraint -------------------------
 
 Constraint: () = "constraint" <i:Identifier> <e:Assign> => {
@@ -206,6 +158,22 @@ Constraint: () = "constraint" <i:Identifier> <e:Assign> => {
     let c = Constraint::new(i.name, e, position);
     parser.problem.add_constraint(c);
 };    
+
+//------------------------- Parameter -------------------------
+
+Parameter: Parameter = <i:Identifier> ":" <t:Type> => {
+    let position = Some(i.position.clone());
+    Parameter::new(i.name, t, position)
+};
+
+Parameters: Vec<Parameter> = <p:Parameter> <l:ParameterNext*> => {
+    let mut parameters = Vec::new();
+    parameters.push(p);
+    parameters.extend(l);
+    parameters
+};
+
+ParameterNext: Parameter = "," <p:Parameter> => p;
 
 //------------------------- Assign -------------------------
 
