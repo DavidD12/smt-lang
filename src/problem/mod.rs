@@ -36,6 +36,9 @@ pub use entry::*;
 pub mod type_entry;
 pub use type_entry::*;
 
+pub mod search;
+pub use search::*;
+
 //------------------------- With Type -------------------------
 
 pub trait WithType: WithPosition {

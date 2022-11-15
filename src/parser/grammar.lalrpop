@@ -16,7 +16,7 @@ match {
 
 //------------------------- Problem -------------------------
 
-pub Problem: () = Entry* => {};
+pub Problem: () = Entry* Search? => {};
 
 //------------------------- Entry -------------------------
 
@@ -159,6 +159,14 @@ Constraint: () = "constraint" <i:Identifier> <e:Assign> => {
     parser.problem.add_constraint(c);
 };    
 
+//------------------------- Search -------------------------
+
+Search: () = {
+    "solve" => parser.problem.set_search(Search::Solve),
+    "minimize" <e:Expr> => parser.problem.set_search(Search::Optimize(Box::new(e), true)),
+    "maximize" <e:Expr> => parser.problem.set_search(Search::Optimize(Box::new(e), false)),
+};
+
 //------------------------- Parameter -------------------------
 
 Parameter: Parameter = <i:Identifier> ":" <t:Type> => {
@@ -258,8 +266,17 @@ StructExpr: Expr = {
         let position = Some(i.position);
         Expr::UnresolvedAttribute(Box::new(e), i.name, position)
     },
+    AsIntervalExpr,
+};
+
+AsIntervalExpr: Expr = {
+    <e:AsIntervalExpr> <l:@L>"as" <min:Integer> ".." <max:Integer> => {
+        let position = Position::new(parser.file(), lookup, l);
+        Expr::AsInterval(Box::new(e), min as isize, max as isize, Some(position))
+    },
     Term,
 };
+
 
 Term: Expr = {
     <l:@L> <b:Boolean> => {

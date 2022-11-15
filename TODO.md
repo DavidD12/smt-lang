@@ -1,13 +1,12 @@
-- homogeneiser les noms des expressions: Expr pas Expr
 - rename typ() into type_()
-- add methode dans Id to get superid
-- minimize/maximize unbounded ? => NO !
-- add check interval into expr with tth type conversion
 - mutualiser les definition avec un trait with Expr et redefinition les check et resolve
 - mutualiser les eq/ne/lt/.. commen dans Many
 - remove &xxx.typ() dans smt et autres car .type() retourne une reference maintenant
 
-- check inst type: Structure or class
 - check non cyclic extends
 - check non redifition of attribute, nor method
 - check bounded forall
+- check expression interval
+- alldiff
+- ITE
+- Count

@@ -13,6 +13,8 @@ pub struct Solution {
     variables: HashMap<VariableId, Value>,
     // Function
     functions: HashMap<FunctionId, FunctionValue>,
+    // Objective
+    objective: Option<Value>,
 }
 
 impl Solution {
@@ -47,12 +49,21 @@ impl Solution {
             let value = FunctionValue::new(smt, model, function);
             functions.insert(function.id(), value);
         }
+        // Objective
+        let objective = match smt.problem().search() {
+            Search::Solve => None,
+            Search::Optimize(e, _) => {
+                let value = Value::new(smt, model, e);
+                Some(value)
+            }
+        };
         //
         Self {
             structures,
             classes,
             variables,
             functions,
+            objective,
         }
     }
 }
@@ -91,6 +102,10 @@ impl ToLang for Solution {
                 f.to_lang(problem),
                 value.to_lang(problem)
             ));
+        }
+        // Objective
+        if let Some(value) = &self.objective {
+            s.push_str(&format!("objective = {}\n", value.to_lang(problem)))
         }
         //
         s

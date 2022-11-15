@@ -10,6 +10,7 @@ pub struct Problem {
     variables: Vec<Variable>,
     functions: Vec<Function>,
     constraints: Vec<Constraint>,
+    search: Search,
 }
 
 impl Problem {
@@ -21,6 +22,7 @@ impl Problem {
             variables: vec![],
             functions: vec![],
             constraints: vec![],
+            search: Search::Solve,
         }
     }
 
@@ -171,6 +173,16 @@ impl Problem {
         &self.constraints
     }
 
+    //---------- Search ----------
+
+    pub fn search(&self) -> &Search {
+        &self.search
+    }
+
+    pub fn set_search(&mut self, search: Search) {
+        self.search = search
+    }
+
     //---------- Entry ----------
 
     pub fn type_entries(&self) -> TypeEntries {
@@ -281,6 +293,8 @@ impl Problem {
             constraints.push(c);
         }
         self.constraints = constraints;
+        // Search
+        self.search = self.search.resolve_expr(self, &entries)?;
         //
         Ok(())
     }
@@ -321,6 +335,7 @@ impl Problem {
         for x in self.constraints.iter() {
             x.check_parameter_size(self)?;
         }
+        self.search.check_parameter_size(self)?;
         Ok(())
     }
 
@@ -357,10 +372,12 @@ impl Problem {
         for x in self.constraints.iter() {
             x.check_type(self)?;
         }
+        self.search.check_type(self)?;
+        self.search.check_bounded(self)?;
         Ok(())
     }
 
-    //---------- Typing ----------
+    //---------- Empty ----------
 
     pub fn check_empty(&self) -> Result<(), Error> {
         for x in self.structures.iter() {
@@ -442,6 +459,7 @@ impl std::fmt::Display for Problem {
         for x in self.constraints.iter() {
             write!(f, "{}\n", x.to_lang(self))?;
         }
+        write!(f, "{}\n", self.search.to_lang(self))?;
         Ok(())
     }
 }

@@ -3,12 +3,63 @@ use crate::problem::*;
 use std::collections::HashMap;
 use z3::ast::Ast;
 
+pub enum Z3Solver<'a> {
+    Solve(z3::Solver<'a>),
+    Optimize(z3::Optimize<'a>),
+}
+
+impl<'a> Z3Solver<'a> {
+    pub fn assert(&self, ast: &z3::ast::Bool<'a>) {
+        match self {
+            Z3Solver::Solve(solver) => solver.assert(ast),
+            Z3Solver::Optimize(solver) => solver.assert(ast),
+        }
+    }
+
+    pub fn maximize(&self, ast: &z3::ast::Int<'a>) {
+        match self {
+            Z3Solver::Solve(_) => {}
+            Z3Solver::Optimize(solver) => solver.maximize(ast),
+        }
+    }
+
+    pub fn minimize(&self, ast: &z3::ast::Int<'a>) {
+        match self {
+            Z3Solver::Solve(_) => {}
+            Z3Solver::Optimize(solver) => solver.minimize(ast),
+        }
+    }
+
+    pub fn check(&self) -> z3::SatResult {
+        match self {
+            Z3Solver::Solve(solver) => solver.check(),
+            Z3Solver::Optimize(solver) => solver.check(&[]),
+        }
+    }
+
+    pub fn get_model(&self) -> Option<z3::Model> {
+        match self {
+            Z3Solver::Solve(solver) => solver.get_model(),
+            Z3Solver::Optimize(solver) => solver.get_model(),
+        }
+    }
+}
+
+impl<'a> std::fmt::Display for Z3Solver<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Z3Solver::Solve(solver) => write!(f, "{}", solver),
+            Z3Solver::Optimize(solver) => write!(f, "{}", solver),
+        }
+    }
+}
+
 pub struct Smt<'a> {
     problem: &'a Problem,
     //
     _cfg: &'a z3::Config,
     ctx: &'a z3::Context,
-    solver: &'a z3::Solver<'a>,
+    solver: Z3Solver<'a>,
     // Structure
     struc_sort: HashMap<StructureId, z3::Sort<'a>>,
     struc_instances: HashMap<InstanceId, z3::ast::Datatype<'a>>,
@@ -33,12 +84,11 @@ pub struct Smt<'a> {
 }
 
 impl<'a> Smt<'a> {
-    pub fn new(
-        problem: &'a Problem,
-        cfg: &'a z3::Config,
-        ctx: &'a z3::Context,
-        solver: &'a z3::Solver,
-    ) -> Self {
+    pub fn new(problem: &'a Problem, cfg: &'a z3::Config, ctx: &'a z3::Context) -> Self {
+        let solver = match problem.search() {
+            Search::Solve => Z3Solver::Solve(z3::Solver::new(&ctx)),
+            Search::Optimize(_, _) => Z3Solver::Optimize(z3::Optimize::new(&ctx)),
+        };
         Self {
             problem,
             _cfg: cfg,
@@ -70,6 +120,10 @@ impl<'a> Smt<'a> {
 
     pub fn problem(&self) -> &Problem {
         self.problem
+    }
+
+    pub fn solver(&self) -> &Z3Solver {
+        &self.solver
     }
 
     //------------------------- Sort -------------------------
@@ -571,6 +625,23 @@ impl<'a> Smt<'a> {
         self.constraints.get(&id).unwrap()
     }
 
+    //------------------------- Search -------------------------
+
+    pub fn add_search(&mut self) {
+        match self.problem.search() {
+            Search::Solve => {}
+            Search::Optimize(e, minimize) => {
+                let e = e.type_inference(self.problem);
+                let e = self.to_int(&e);
+                if *minimize {
+                    self.solver.minimize(&e);
+                } else {
+                    self.solver.maximize(&e);
+                }
+            }
+        }
+    }
+
     //------------------------- Expr -------------------------
 
     fn to_dynamic(&self, expr: &Expr) -> z3::ast::Dynamic<'a> {
@@ -777,6 +848,12 @@ impl<'a> Smt<'a> {
             Expr::ClassMetCall(e, id, parameters, _) => {
                 self.class_met_call(e, *id, parameters).as_int().unwrap()
             }
+            Expr::AsInterval(e, min, max, _) => {
+                let e = self.to_int(e);
+                let min = z3::ast::Int::from_i64(self.ctx, *min as i64);
+                let max = z3::ast::Int::from_i64(self.ctx, *max as i64);
+                e.lt(&min).ite(&min, &e.gt(&max).ite(&max, &e))
+            }
             _ => panic!("to_int {:?}", expr),
         }
     }
@@ -934,6 +1011,8 @@ impl<'a> Smt<'a> {
         self.define_functions();
         // Constraint
         self.add_constraints();
+        // Search
+        self.add_search();
     }
 
     //------------------------- To Entry -------------------------

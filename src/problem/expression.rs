@@ -95,7 +95,9 @@ pub enum Expr {
     ClassSelf(ClassId, Option<Position>),
     ClassAttribute(Box<Expr>, AttributeId<ClassId>, Option<Position>),
     ClassMetCall(Box<Expr>, MethodId<ClassId>, Vec<Expr>, Option<Position>),
+    //
     AsClass(Box<Expr>, ClassId),
+    AsInterval(Box<Expr>, isize, isize, Option<Position>),
     //
     // Forall(String, Type, Box<Expr>, Option<Position>), // TODO: LocalVariable
     //
@@ -124,6 +126,7 @@ impl Expr {
             Expr::ClassAttribute(_, _, p) => p.clone(),
             Expr::ClassMetCall(_, _, _, p) => p.clone(),
             Expr::AsClass(_, _) => None,
+            Expr::AsInterval(_, _, _, p) => p.clone(),
             // Expr::Forall(_, _, _, p) => p.clone(),
             Expr::Unresolved(_, p) => p.clone(),
             Expr::UnresolvedFunCall(_, _, p) => p.clone(),
@@ -153,6 +156,9 @@ impl Expr {
                 e1.is_same(e2) && i1 == i2 && Self::all_same(a1, a2)
             }
             (Expr::AsClass(e1, i1), Expr::AsClass(e2, i2)) => i1 == i2 && e1.is_same(e2),
+            (Expr::AsInterval(e1, min1, max1, _), Expr::AsInterval(e2, min2, max2, _)) => {
+                min1 == min2 && max1 == max2 && e1.is_same(e2)
+            }
             _ => false,
         }
     }
@@ -225,6 +231,10 @@ impl Expr {
             Expr::AsClass(e, id) => {
                 let e = e.resolve(problem, entries)?;
                 Ok(Expr::AsClass(Box::new(e), *id))
+            }
+            Expr::AsInterval(e, min, max, pos) => {
+                let e = e.resolve(problem, entries)?;
+                Ok(Expr::AsInterval(Box::new(e), *min, *max, pos.clone()))
             }
             //
             Expr::Unresolved(name, position) => match entries.get(&name) {
@@ -393,6 +403,7 @@ impl Expr {
             Expr::ClassAttribute(_, id, _) => problem.get(*id).unwrap().typ().clone(),
             Expr::ClassMetCall(_, id, _, _) => problem.get(*id).unwrap().typ().clone(),
             Expr::AsClass(_, id) => Type::Class(*id),
+            Expr::AsInterval(_, min, max, _) => Type::Interval(*min, *max),
             Expr::Unresolved(_, _) => Type::Undefined,
             Expr::UnresolvedFunCall(_, _, _) => Type::Undefined,
             Expr::UnresolvedAttribute(_, _, _) => Type::Undefined,
@@ -499,6 +510,7 @@ impl Expr {
             Expr::AsClass(e, id) => {
                 check_subtype_type(problem, &Type::Class(*id), e, &e.typ(problem))
             }
+            Expr::AsInterval(e, _, _, _) => check_type_integer(e, &e.typ(problem)),
             Expr::Unresolved(_, _) => panic!(),
             Expr::UnresolvedFunCall(_, _, _) => panic!(),
             Expr::UnresolvedAttribute(_, _, _) => panic!(),
@@ -589,6 +601,10 @@ impl Expr {
                 let e = e.type_inference(problem);
                 Expr::AsClass(Box::new(e), *id)
             }
+            Expr::AsInterval(e, min, max, pos) => {
+                let e = e.type_inference(problem);
+                Expr::AsInterval(Box::new(e), *min, *max, pos.clone())
+            }
             Expr::Unresolved(_, _) => panic!(),
             Expr::UnresolvedFunCall(_, _, _) => panic!(),
             Expr::UnresolvedAttribute(_, _, _) => panic!(),
@@ -676,6 +692,7 @@ impl Expr {
                 }
             }
             Expr::AsClass(e, _) => e.check_parameter_size(problem),
+            Expr::AsInterval(e, _, _, _) => e.check_parameter_size(problem),
             Expr::Unresolved(_, _) => panic!(),
             Expr::UnresolvedFunCall(_, _, _) => panic!(),
             Expr::UnresolvedAttribute(_, _, _) => panic!(),
@@ -725,6 +742,9 @@ impl Expr {
                     Expr::ClassMetCall(Box::new(e), *id, args, pos.clone())
                 }
                 Expr::AsClass(e, id) => Expr::AsClass(Box::new(e.substitute(old, expr)), *id),
+                Expr::AsInterval(e, min, max, pos) => {
+                    Expr::AsInterval(Box::new(e.substitute(old, expr)), *min, *max, pos.clone())
+                }
                 Expr::Unresolved(_, _) => self.clone(),
                 Expr::UnresolvedFunCall(_, _, _) => panic!(),
                 Expr::UnresolvedAttribute(_, _, _) => panic!(),
@@ -762,6 +782,18 @@ pub fn check_type_number(expr: &Expr, expr_type: &Type) -> Result<(), Error> {
             expr: expr.clone(),
             typ: expr_type.clone(),
             expected: vec![Type::Int, Type::Real],
+        })
+    }
+}
+
+pub fn check_type_integer(expr: &Expr, expr_type: &Type) -> Result<(), Error> {
+    if expr_type.is_integer() {
+        Ok(())
+    } else {
+        Err(Error::Type {
+            expr: expr.clone(),
+            typ: expr_type.clone(),
+            expected: vec![Type::Int],
         })
     }
 }
@@ -875,6 +907,9 @@ impl ToLang for Expr {
                 e.to_lang(problem),
                 problem.get(*id).unwrap().name()
             ),
+            Expr::AsInterval(e, min, max, _) => {
+                format!("({} as {}..{})", e.to_lang(problem), min, max)
+            }
             Expr::Unresolved(name, _) => format!("{}?", name),
             Expr::UnresolvedFunCall(name, params, _) => {
                 let mut s = format!("{}?(", name);
