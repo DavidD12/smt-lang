@@ -104,6 +104,22 @@ impl Class {
             .collect()
     }
 
+    pub fn common_class(&self, problem: &Problem, other: ClassId) -> Option<ClassId> {
+        let mut l1 = self.super_classes(problem);
+        l1.push(self.id());
+        let mut l2 = problem.get(other).unwrap().super_classes(problem);
+        l2.push(other);
+        //
+        let mut res = None;
+        for c in l1.iter() {
+            if !l2.contains(c) {
+                return res;
+            }
+            res = Some(*c);
+        }
+        res
+    }
+
     //---------- Attribute ----------
 
     pub fn add_attribute(&mut self, mut attribute: Attribute<ClassId>) -> AttributeId<ClassId> {
@@ -124,6 +140,17 @@ impl Class {
 
     pub fn attributes(&self) -> &Vec<Attribute<ClassId>> {
         &self.attributes
+    }
+
+    pub fn all_attributes(&self, problem: &Problem) -> Vec<AttributeId<ClassId>> {
+        let mut classes = self.super_classes(problem).clone();
+        classes.push(self.id());
+        let mut v = Vec::new();
+        for id in classes.iter() {
+            let c = problem.get(*id).unwrap();
+            v.extend(c.attributes().iter().map(|a| a.id()));
+        }
+        v
     }
 
     pub fn find_attribute(&self, name: &str) -> Option<&Attribute<ClassId>> {
@@ -167,6 +194,17 @@ impl Class {
 
     pub fn methods(&self) -> &Vec<Method<ClassId>> {
         &self.methods
+    }
+
+    pub fn all_methods(&self, problem: &Problem) -> Vec<MethodId<ClassId>> {
+        let mut classes = self.super_classes(problem).clone();
+        classes.push(self.id());
+        let mut v = Vec::new();
+        for id in classes.iter() {
+            let c = problem.get(*id).unwrap();
+            v.extend(c.methods().iter().map(|a| a.id()));
+        }
+        v
     }
 
     pub fn find_method(&self, name: &str) -> Option<&Method<ClassId>> {

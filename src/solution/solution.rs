@@ -28,7 +28,9 @@ impl Solution {
         // Classes
         let mut classes = HashMap::new();
         for class in smt.problem().classes().iter() {
-            if !class.attributes().is_empty() || !class.methods().is_empty() {
+            if !class.all_attributes(smt.problem()).is_empty()
+                || !class.all_methods(smt.problem()).is_empty()
+            {
                 let value = ClassValue::new(smt, model, class.id());
                 classes.insert(class.id(), value);
             }
@@ -39,7 +41,6 @@ impl Solution {
             let value = Value::new(smt, model, &Expr::Variable(variable.id(), None));
             variables.insert(variable.id(), value);
         }
-
         // Functions
         let mut functions = HashMap::new();
         for function in smt.problem().functions().iter() {

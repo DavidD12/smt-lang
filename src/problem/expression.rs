@@ -273,8 +273,6 @@ impl Expr {
                     }
                 } else if let Type::Class(id) = t {
                     if let Some(a) = problem.get(id).unwrap().find_all_attribute(problem, name) {
-                        let AttributeId(class_id, _) = a.id();
-                        let e = Expr::AsClass(Box::new(e), class_id);
                         Ok(Expr::ClassAttribute(Box::new(e), a.id(), pos.clone()))
                     } else {
                         Err(Error::Resolve {
@@ -312,8 +310,6 @@ impl Expr {
                     }
                 } else if let Type::Class(id) = t {
                     if let Some(a) = problem.get(id).unwrap().find_all_method(problem, name) {
-                        let MethodId(class_id, _) = a.id();
-                        let e = Expr::AsClass(Box::new(e), class_id);
                         Ok(Expr::ClassMetCall(Box::new(e), a.id(), v, pos.clone()))
                     } else {
                         Err(Error::Resolve {
@@ -507,6 +503,109 @@ impl Expr {
             Expr::UnresolvedFunCall(_, _, _) => panic!(),
             Expr::UnresolvedAttribute(_, _, _) => panic!(),
             Expr::UnresolvedMethCall(_, _, _, _) => panic!(),
+        }
+    }
+
+    pub fn type_inference(&self, problem: &Problem) -> Expr {
+        match self {
+            Expr::BoolValue(_, _) => self.clone(),
+            Expr::IntValue(_, _) => self.clone(),
+            Expr::RealValue(_, _) => self.clone(),
+            //
+            Expr::Prefix(op, e, p) => {
+                let e = e.type_inference(problem);
+                Expr::Prefix(*op, Box::new(e), p.clone())
+            }
+            Expr::Binary(left, op, right, pos) => {
+                let mut left = left.type_inference(problem);
+                let mut right = right.type_inference(problem);
+                let lt = &left.typ(problem);
+                let rt = &right.typ(problem);
+                match (lt, rt) {
+                    (Type::Class(i1), Type::Class(i2)) => {
+                        if i1 != i2 {
+                            if lt.is_subtype_of(problem, rt) {
+                                left = left.as_type(problem, rt);
+                            } else {
+                                right = right.as_type(problem, lt);
+                            }
+                        }
+                    }
+                    _ => {}
+                }
+                Expr::Binary(Box::new(left), *op, Box::new(right), pos.clone())
+            }
+            Expr::Variable(_, _) => self.clone(),
+            Expr::Parameter(_) => self.clone(),
+            Expr::FunctionCall(id, params, pos) => {
+                let fun = problem.get(*id).unwrap();
+                let mut v = Vec::new();
+                for (e, t) in params.iter().zip(fun.parameters_type().iter()) {
+                    let e = e.type_inference(problem);
+                    let e = e.as_type(problem, t);
+                    v.push(e);
+                }
+                Expr::FunctionCall(*id, v, pos.clone())
+            }
+            Expr::Instance(_, _) => self.clone(),
+            Expr::StrucSelf(_, _) => self.clone(),
+            Expr::StrucAttribute(e, id, pos) => {
+                let e = e.type_inference(problem);
+                Expr::StrucAttribute(Box::new(e), *id, pos.clone())
+            }
+            Expr::StrucMetCall(e, id, params, pos) => {
+                let meth = problem.get(*id).unwrap();
+                let e = e.type_inference(problem);
+                let mut v = Vec::new();
+                for (e, t) in params.iter().zip(meth.parameters_type().iter()) {
+                    let e = e.type_inference(problem);
+                    let e = e.as_type(problem, t);
+                    v.push(e);
+                }
+                Expr::StrucMetCall(Box::new(e), *id, v, pos.clone())
+            }
+            Expr::ClassSelf(_, _) => self.clone(),
+            Expr::ClassAttribute(e, id, pos) => {
+                let e = e.type_inference(problem);
+                let AttributeId(class_id, _) = id;
+                let e = e.as_type(problem, &Type::Class(*class_id));
+                Expr::ClassAttribute(Box::new(e), *id, pos.clone())
+            }
+            Expr::ClassMetCall(e, id, params, pos) => {
+                let e = e.type_inference(problem);
+                let MethodId(class_id, _) = id;
+                let e = e.as_type(problem, &Type::Class(*class_id));
+                //
+                let meth = problem.get(*id).unwrap();
+                let mut v = Vec::new();
+                for (e, t) in params.iter().zip(meth.parameters_type().iter()) {
+                    let e = e.type_inference(problem);
+                    let e = e.as_type(problem, t);
+                    v.push(e);
+                }
+                Expr::ClassMetCall(Box::new(e), *id, v, pos.clone())
+            }
+            Expr::AsClass(e, id) => {
+                let e = e.type_inference(problem);
+                Expr::AsClass(Box::new(e), *id)
+            }
+            Expr::Unresolved(_, _) => panic!(),
+            Expr::UnresolvedFunCall(_, _, _) => panic!(),
+            Expr::UnresolvedAttribute(_, _, _) => panic!(),
+            Expr::UnresolvedMethCall(_, _, _, _) => panic!(),
+        }
+    }
+
+    pub fn as_type(&self, problem: &Problem, expected: &Type) -> Expr {
+        match (&self.typ(problem), expected) {
+            (Type::Class(id1), Type::Class(id2)) => {
+                if id1 == id2 {
+                    self.clone()
+                } else {
+                    Expr::AsClass(Box::new(self.clone()), *id2)
+                }
+            }
+            _ => self.clone(),
         }
     }
 

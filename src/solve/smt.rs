@@ -1,6 +1,5 @@
 use crate::combine::Combine;
 use crate::problem::*;
-use crate::solution::call;
 use std::collections::HashMap;
 use z3::ast::Ast;
 
@@ -81,11 +80,7 @@ impl<'a> Smt<'a> {
             Type::Int => z3::Sort::int(self.ctx),
             Type::Real => z3::Sort::real(self.ctx),
             Type::Interval(_, _) => z3::Sort::int(self.ctx),
-            Type::Structure(id) => {
-                println!("{:?}", id);
-                println!("{:?}", self.struc_sort);
-                self.struc_sort.get(id).unwrap().clone()
-            }
+            Type::Structure(id) => self.struc_sort.get(id).unwrap().clone(),
             Type::Class(id) => self.class_datatype_sort.get(id).unwrap().sort.clone(),
             Type::Unresolved(_, _) => panic!(),
             Type::Undefined => panic!(),
@@ -148,6 +143,7 @@ impl<'a> Smt<'a> {
                     //
                     let att_expr = Expr::StrucAttribute(Box::new(inst_expr), attribute.id(), None);
                     let ass = Expr::Binary(Box::new(att_expr), BinOp::Eq, Box::new(expr), None);
+                    let ass = ass.type_inference(self.problem);
                     self.solver.assert(&self.to_bool(&ass));
                 }
             }
@@ -187,6 +183,7 @@ impl<'a> Smt<'a> {
                             None,
                         );
                         let cond = Expr::Binary(Box::new(call), BinOp::Eq, Box::new(e), None);
+                        let cond = cond.type_inference(self.problem);
                         self.solver.assert(&self.to_bool(&cond));
                         //
                         if !combine.step() {
@@ -242,7 +239,6 @@ impl<'a> Smt<'a> {
 
     fn declare_class(&mut self, class: &Class) {
         let mut builder = z3::DatatypeBuilder::new(self.ctx, class.name());
-        let mut classes = vec![class];
         let mut map = HashMap::new();
         // Current Class
         let name = format!("_{}", class.name());
@@ -307,6 +303,7 @@ impl<'a> Smt<'a> {
                     //
                     let att_expr = Expr::ClassAttribute(Box::new(inst_expr), attribute.id(), None);
                     let ass = Expr::Binary(Box::new(att_expr), BinOp::Eq, Box::new(expr), None);
+                    let ass = ass.type_inference(self.problem);
                     self.solver.assert(&self.to_bool(&ass));
                 }
             }
@@ -346,6 +343,7 @@ impl<'a> Smt<'a> {
                             None,
                         );
                         let cond = Expr::Binary(Box::new(call), BinOp::Eq, Box::new(e), None);
+                        let cond = cond.type_inference(self.problem);
                         self.solver.assert(&self.to_bool(&cond));
                         //
                         if !combine.step() {
@@ -445,6 +443,7 @@ impl<'a> Smt<'a> {
         if let Some(expr) = variable.expr() {
             let v = Expr::Variable(variable.id(), None);
             let e = &Expr::Binary(Box::new(v), BinOp::Eq, Box::new(expr.clone()), None);
+            let e = e.type_inference(self.problem);
             self.solver.assert(&self.to_bool(&e));
         }
     }
@@ -518,6 +517,7 @@ impl<'a> Smt<'a> {
                 let e = expr.substitute_all(all);
                 let call = Expr::FunctionCall(function.id(), values, None);
                 let cond = Expr::Binary(Box::new(call), BinOp::Eq, Box::new(e), None);
+                let cond = cond.type_inference(self.problem);
                 self.solver.assert(&self.to_bool(&cond));
                 //
                 if !combine.step() {
@@ -552,7 +552,8 @@ impl<'a> Smt<'a> {
 
     fn define_constraint(&mut self, constraint: &Constraint) {
         let c = self.constraint(constraint.id());
-        let e = self.to_bool(constraint.expr());
+        let e = constraint.expr().type_inference(self.problem);
+        let e = self.to_bool(&e);
         self.solver.assert(&c._eq(&e));
         self.solver.assert(&c);
     }
@@ -584,6 +585,9 @@ impl<'a> Smt<'a> {
             let x = self.to_real(expr);
             z3::ast::Dynamic::new(self.ctx, x.get_z3_ast())
         } else if t.is_structure() {
+            let x = self.to_datatype(expr);
+            z3::ast::Dynamic::new(self.ctx, x.get_z3_ast())
+        } else if t.is_class() {
             let x = self.to_datatype(expr);
             z3::ast::Dynamic::new(self.ctx, x.get_z3_ast())
         } else {
@@ -907,13 +911,11 @@ impl<'a> Smt<'a> {
             .unwrap()
             .get(&e_class)
             .unwrap();
-        println!("{:?} -> {:?} : {}", e_class, target_class, constructor_id);
         let variant = &self
             .class_datatype_sort
             .get(&target_class)
             .unwrap()
             .variants[*constructor_id];
-        println!("{:?}", variant);
         variant.constructor.apply(&[&e]).as_datatype().unwrap()
     }
 

@@ -12,6 +12,7 @@ pub enum Value {
 impl Value {
     pub fn new(smt: &Smt, model: &z3::Model, expr: &Expr) -> Self {
         let t = &expr.typ(smt.problem());
+        let expr = &expr.type_inference(smt.problem());
         if t.is_bool() {
             let value = model
                 .eval(&smt.to_bool(expr), true)

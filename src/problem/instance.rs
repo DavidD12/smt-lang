@@ -70,11 +70,11 @@ impl WithType for Instance {
         self.typ = typ
     }
 
-    fn resolve_type_children(&mut self, entries: &TypeEntries) -> Result<(), Error> {
+    fn resolve_type_children(&mut self, _: &TypeEntries) -> Result<(), Error> {
         Ok(())
     }
 
-    fn check_interval_children(&self, problem: &Problem) -> Result<(), Error> {
+    fn check_interval_children(&self, _: &Problem) -> Result<(), Error> {
         Ok(())
     }
 }

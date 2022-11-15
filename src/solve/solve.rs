@@ -11,6 +11,7 @@ pub fn solve(pretty: &mut d_stuff::Pretty, problem: &Problem, verbose: u8) -> Re
     smt.init();
     if verbose >= 3 {
         pretty.add(smt.solver_to_entry());
+        pretty.print();
     }
     // Solve
     match solver.check() {
@@ -20,6 +21,7 @@ pub fn solve(pretty: &mut d_stuff::Pretty, problem: &Problem, verbose: u8) -> Re
             let z3_model = solver.get_model().unwrap();
             if verbose >= 3 {
                 pretty.add(smt.model_to_entry());
+                pretty.print();
             }
             Response::Solution(Solution::new(&smt, &z3_model))
         }

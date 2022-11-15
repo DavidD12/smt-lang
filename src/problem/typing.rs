@@ -129,7 +129,7 @@ impl Type {
             (Type::Interval(_, _), Type::Interval(_, _)) => true,
             (Type::Interval(_, _), Type::Int) => true,
             (Type::Int, Type::Interval(_, _)) => true,
-            (x, y) => x.is_subtype_of(problem, y),
+            (x, y) => x.is_subtype_of(problem, y) || y.is_subtype_of(problem, x),
         }
     }
 
