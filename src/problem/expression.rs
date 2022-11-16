@@ -99,6 +99,14 @@ pub enum Expr {
     AsClass(Box<Expr>, ClassId),
     AsInterval(Box<Expr>, isize, isize, Option<Position>),
     //
+    IfThenElse(
+        Box<Expr>,
+        Box<Expr>,
+        Vec<(Expr, Expr)>,
+        Box<Expr>,
+        Option<Position>,
+    ),
+    //
     // Forall(String, Type, Box<Expr>, Option<Position>), // TODO: LocalVariable
     //
     Unresolved(String, Option<Position>),
@@ -127,6 +135,7 @@ impl Expr {
             Expr::ClassMetCall(_, _, _, p) => p.clone(),
             Expr::AsClass(_, _) => None,
             Expr::AsInterval(_, _, _, p) => p.clone(),
+            Expr::IfThenElse(_, _, _, _, p) => p.clone(),
             // Expr::Forall(_, _, _, p) => p.clone(),
             Expr::Unresolved(_, p) => p.clone(),
             Expr::UnresolvedFunCall(_, _, p) => p.clone(),
@@ -158,6 +167,16 @@ impl Expr {
             (Expr::AsClass(e1, i1), Expr::AsClass(e2, i2)) => i1 == i2 && e1.is_same(e2),
             (Expr::AsInterval(e1, min1, max1, _), Expr::AsInterval(e2, min2, max2, _)) => {
                 min1 == min2 && max1 == max2 && e1.is_same(e2)
+            }
+            (Expr::IfThenElse(c1, t1, l1, e1, _), Expr::IfThenElse(c2, t2, l2, e2, _)) => {
+                c1.is_same(c2)
+                    && t1.is_same(t2)
+                    && l1.len() == l2.len()
+                    && l1
+                        .iter()
+                        .zip(l2.iter())
+                        .all(|((x1, y1), (x2, y2))| x1.is_same(x2) && y1.is_same(y2))
+                    && e1.is_same(e2)
             }
             _ => false,
         }
@@ -235,6 +254,25 @@ impl Expr {
             Expr::AsInterval(e, min, max, pos) => {
                 let e = e.resolve(problem, entries)?;
                 Ok(Expr::AsInterval(Box::new(e), *min, *max, pos.clone()))
+            }
+            //
+            Expr::IfThenElse(c, t, l, e, pos) => {
+                let c = c.resolve(problem, entries)?;
+                let t = t.resolve(problem, entries)?;
+                let mut v = Vec::new();
+                for (x, y) in l.iter() {
+                    let x = x.resolve(problem, entries)?;
+                    let y = y.resolve(problem, entries)?;
+                    v.push((x, y));
+                }
+                let e = e.resolve(problem, entries)?;
+                Ok(Expr::IfThenElse(
+                    Box::new(c),
+                    Box::new(t),
+                    v,
+                    Box::new(e),
+                    pos.clone(),
+                ))
             }
             //
             Expr::Unresolved(name, position) => match entries.get(&name) {
@@ -404,6 +442,7 @@ impl Expr {
             Expr::ClassMetCall(_, id, _, _) => problem.get(*id).unwrap().typ().clone(),
             Expr::AsClass(_, id) => Type::Class(*id),
             Expr::AsInterval(_, min, max, _) => Type::Interval(*min, *max),
+            Expr::IfThenElse(_, t, _, _, _) => t.typ(problem),
             Expr::Unresolved(_, _) => Type::Undefined,
             Expr::UnresolvedFunCall(_, _, _) => Type::Undefined,
             Expr::UnresolvedAttribute(_, _, _) => Type::Undefined,
@@ -511,6 +550,15 @@ impl Expr {
                 check_subtype_type(problem, &Type::Class(*id), e, &e.typ(problem))
             }
             Expr::AsInterval(e, _, _, _) => check_type_integer(e, &e.typ(problem)),
+            Expr::IfThenElse(c, t, l, e, _) => {
+                check_type_bool(c, &c.typ(problem))?;
+                let typ = &t.typ(problem);
+                for (x, y) in l {
+                    check_type_bool(x, &x.typ(problem))?;
+                    check_subtype_type(problem, typ, y, &y.typ(problem))?;
+                }
+                check_subtype_type(problem, typ, e, &e.typ(problem))
+            }
             Expr::Unresolved(_, _) => panic!(),
             Expr::UnresolvedFunCall(_, _, _) => panic!(),
             Expr::UnresolvedAttribute(_, _, _) => panic!(),
@@ -605,6 +653,17 @@ impl Expr {
                 let e = e.type_inference(problem);
                 Expr::AsInterval(Box::new(e), *min, *max, pos.clone())
             }
+            Expr::IfThenElse(c, t, l, e, pos) => {
+                let c = Box::new(c.type_inference(problem));
+                let t = Box::new(t.type_inference(problem));
+                let l = l
+                    .iter()
+                    .map(|(x, y)| (x.type_inference(problem), y.type_inference(problem)))
+                    .collect();
+                let e = Box::new(e.type_inference(problem));
+                let pos = pos.clone();
+                Expr::IfThenElse(c, t, l, e, pos)
+            }
             Expr::Unresolved(_, _) => panic!(),
             Expr::UnresolvedFunCall(_, _, _) => panic!(),
             Expr::UnresolvedAttribute(_, _, _) => panic!(),
@@ -693,6 +752,15 @@ impl Expr {
             }
             Expr::AsClass(e, _) => e.check_parameter_size(problem),
             Expr::AsInterval(e, _, _, _) => e.check_parameter_size(problem),
+            Expr::IfThenElse(c, t, l, e, _) => {
+                c.check_parameter_size(problem)?;
+                t.check_parameter_size(problem)?;
+                for (x, y) in l.iter() {
+                    x.check_parameter_size(problem)?;
+                    y.check_parameter_size(problem)?;
+                }
+                e.check_parameter_size(problem)
+            }
             Expr::Unresolved(_, _) => panic!(),
             Expr::UnresolvedFunCall(_, _, _) => panic!(),
             Expr::UnresolvedAttribute(_, _, _) => panic!(),
@@ -744,6 +812,17 @@ impl Expr {
                 Expr::AsClass(e, id) => Expr::AsClass(Box::new(e.substitute(old, expr)), *id),
                 Expr::AsInterval(e, min, max, pos) => {
                     Expr::AsInterval(Box::new(e.substitute(old, expr)), *min, *max, pos.clone())
+                }
+                Expr::IfThenElse(c, t, l, e, pos) => {
+                    let c = Box::new(c.substitute(old, expr));
+                    let t = Box::new(t.substitute(old, expr));
+                    let l = l
+                        .iter()
+                        .map(|(x, y)| (x.substitute(old, expr), y.substitute(old, expr)))
+                        .collect();
+                    let e = Box::new(e.substitute(old, expr));
+                    let pos = pos.clone();
+                    Expr::IfThenElse(c, t, l, e, pos)
                 }
                 Expr::Unresolved(_, _) => self.clone(),
                 Expr::UnresolvedFunCall(_, _, _) => panic!(),
@@ -909,6 +988,18 @@ impl ToLang for Expr {
             ),
             Expr::AsInterval(e, min, max, _) => {
                 format!("({} as {}..{})", e.to_lang(problem), min, max)
+            }
+            Expr::IfThenElse(c, t, l, e, _) => {
+                let mut s = format!("if {} then {}", c.to_lang(problem), t.to_lang(problem));
+                for (x, y) in l.iter() {
+                    s.push_str(&format!(
+                        " elif {} then {}",
+                        x.to_lang(problem),
+                        y.to_lang(problem)
+                    ));
+                }
+                s.push_str(&format!(" else {} end", e.to_lang(problem)));
+                s
             }
             Expr::Unresolved(name, _) => format!("{}?", name),
             Expr::UnresolvedFunCall(name, params, _) => {

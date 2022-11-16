@@ -800,6 +800,21 @@ impl<'a> Smt<'a> {
             Expr::ClassMetCall(e, id, parameters, _) => {
                 self.class_met_call(e, *id, parameters).as_bool().unwrap()
             }
+            Expr::IfThenElse(c, t, l, e, _) => {
+                let c = self.to_bool(c);
+                let t = self.to_bool(t);
+                let l = l
+                    .iter()
+                    .map(|(x, y)| (self.to_bool(x), self.to_bool(y)))
+                    .collect::<Vec<_>>();
+                let e = self.to_bool(e);
+                let mut res = e;
+                for (x, y) in l.iter().rev() {
+                    res = x.ite(y, &res);
+                }
+                res = c.ite(&t, &res);
+                res
+            }
             _ => panic!("to_bool {:?}", expr),
         }
     }
@@ -853,6 +868,21 @@ impl<'a> Smt<'a> {
                 let min = z3::ast::Int::from_i64(self.ctx, *min as i64);
                 let max = z3::ast::Int::from_i64(self.ctx, *max as i64);
                 e.lt(&min).ite(&min, &e.gt(&max).ite(&max, &e))
+            }
+            Expr::IfThenElse(c, t, l, e, _) => {
+                let c = self.to_bool(c);
+                let t = self.to_int(t);
+                let l = l
+                    .iter()
+                    .map(|(x, y)| (self.to_bool(x), self.to_int(y)))
+                    .collect::<Vec<_>>();
+                let e = self.to_int(e);
+                let mut res = e;
+                for (x, y) in l.iter().rev() {
+                    res = x.ite(y, &res);
+                }
+                res = c.ite(&t, &res);
+                res
             }
             _ => panic!("to_int {:?}", expr),
         }
@@ -915,6 +945,21 @@ impl<'a> Smt<'a> {
             Expr::ClassMetCall(e, id, parameters, _) => {
                 self.class_met_call(e, *id, parameters).as_real().unwrap()
             }
+            Expr::IfThenElse(c, t, l, e, _) => {
+                let c = self.to_bool(c);
+                let t = self.to_real(t);
+                let l = l
+                    .iter()
+                    .map(|(x, y)| (self.to_bool(x), self.to_real(y)))
+                    .collect::<Vec<_>>();
+                let e = self.to_real(e);
+                let mut res = e;
+                for (x, y) in l.iter().rev() {
+                    res = x.ite(y, &res);
+                }
+                res = c.ite(&t, &res);
+                res
+            }
             _ => panic!("to_real {:?}", expr),
         }
     }
@@ -957,6 +1002,21 @@ impl<'a> Smt<'a> {
                 Type::Class(c_id) => self.cast(self.to_datatype(e), c_id, *id),
                 _ => panic!(),
             },
+            Expr::IfThenElse(c, t, l, e, _) => {
+                let c = self.to_bool(c);
+                let t = self.to_datatype(t);
+                let l = l
+                    .iter()
+                    .map(|(x, y)| (self.to_bool(x), self.to_datatype(y)))
+                    .collect::<Vec<_>>();
+                let e = self.to_datatype(e);
+                let mut res = e;
+                for (x, y) in l.iter().rev() {
+                    res = x.ite(y, &res);
+                }
+                res = c.ite(&t, &res);
+                res
+            }
             _ => panic!("to_datatype {:?}", expr),
         }
     }

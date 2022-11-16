@@ -274,8 +274,20 @@ AsIntervalExpr: Expr = {
         let position = Position::new(parser.file(), lookup, l);
         Expr::AsInterval(Box::new(e), min as isize, max as isize, Some(position))
     },
-    Term,
+    IfThenElseExpr,
 };
+
+IfThenElseExpr: Expr = {
+    <l:@L>"if" <c:Expr> "then" <t:Expr> <v:ElifExpr*> "else" <e:Expr> "end" => {
+        let pos = Some(Position::new(parser.file(), lookup, l));
+        let c = Box::new(c);
+        let t = Box::new(t);
+        let e = Box::new(e);
+        Expr::IfThenElse(c, t, v, e, pos)
+    },
+    Term
+};
+ElifExpr: (Expr, Expr) = "elif" <x:Expr> "then" <y:Expr> => (x, y);
 
 
 Term: Expr = {

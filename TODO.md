@@ -10,3 +10,5 @@
 - alldiff
 - ITE
 - Count
+
+- type intersectino for ITE and others
