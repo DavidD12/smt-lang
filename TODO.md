@@ -3,12 +3,14 @@
 - mutualiser les eq/ne/lt/.. commen dans Many
 - remove &xxx.typ() dans smt et autres car .type() retourne une reference maintenant
 
+- add solver timeout
+- print something while computing before solution
+
 - check non cyclic extends
 - check non redifition of attribute, nor method
 - check bounded forall
 - check expression interval
 - alldiff
-- ITE
 - Count
 
-- type intersectino for ITE and others
+- type intersection for ITE and others
