@@ -52,6 +52,9 @@ pub enum Error {
         name: String,
         category: String,
     },
+    Cyclic {
+        id: ClassId,
+    },
 }
 
 impl Error {
@@ -94,82 +97,6 @@ impl Error {
         }
     }
 }
-
-// //------------------------- ToLang -------------------------
-
-// impl ToLang for Error {
-//     fn to_lang(&self, problem: &crate::problem::Problem) -> String {
-//         match self {
-//             Error::File { filename, message } => {
-//                 format!("cannot read file {} {}", filename, message)
-//             }
-//             Error::Parse {
-//                 message,
-//                 token,
-//                 position,
-//                 expected,
-//             } => match position {
-//                 Some(position) => format!(
-//                     "parse error '{}' at {}, expecting: {:?}",
-//                     message, position, expected
-//                 ),
-//                 None => format!(
-//                     "parse error '{}', expecting: {}",
-//                     message,
-//                     expected_tokens(expected)
-//                 ),
-//             },
-//             Error::Duplicate {
-//                 name,
-//                 first,
-//                 second,
-//             } => match (first, second) {
-//                 (None, None) => format!("duplicate '{}'", name),
-//                 (None, Some(p)) => format!("duplicate '{}' at {}", name, p),
-//                 (Some(p), None) => format!("duplicate '{}' at {}", name, p),
-//                 (Some(p1), Some(p2)) => format!("duplicate '{}' at {} and {}", name, p1, p2),
-//             },
-//             Error::Resolve { name, position } => {
-//                 if let Some(position) = position {
-//                     format!("unresolved {} at {}", name, position)
-//                 } else {
-//                     format!("unresolved {}", name)
-//                 }
-//             }
-//             Error::Interval { name, position } => {
-//                 if let Some(position) = position {
-//                     format!("malformed interval {} at {}", name, position)
-//                 } else {
-//                     format!("malformed interval {}", name)
-//                 }
-//             }
-//             Error::Type {
-//                 expr,
-//                 typ,
-//                 expected,
-//             } => {
-//                 let mut s = if !expected.is_empty() {
-//                     format!(
-//                         "type error: '{}' type is '{}' but expecting '{}'",
-//                         expr.to_lang(problem),
-//                         typ.to_lang(problem),
-//                         expected_types(problem, expected)
-//                     )
-//                 } else {
-//                     format!(
-//                         "type error: '{}' type is '{}'",
-//                         expr.to_lang(problem),
-//                         typ.to_lang(problem)
-//                     )
-//                 };
-//                 if let Some(p) = expr.position() {
-//                     s.push_str(&format!(" at {}", p));
-//                 }
-//                 s
-//             }
-//         }
-//     }
-// }
 
 //------------------------- To Entry -------------------------
 
@@ -606,6 +533,43 @@ impl ToEntry for Error {
                     d_stuff::Status::Failure,
                     d_stuff::Text::new(
                         "Empty",
+                        termion::style::Bold.to_string(),
+                        termion::color::Blue.fg_str(),
+                    ),
+                    Some(d_stuff::Text::new(
+                        "ERROR",
+                        termion::style::Reset.to_string(),
+                        termion::color::Red.fg_str(),
+                    )),
+                    messages,
+                )
+            }
+            Error::Cyclic { id } => {
+                let mut messages = vec![];
+
+                let c = problem.get(*id).unwrap();
+
+                messages.push(d_stuff::Message::new(
+                    Some(d_stuff::Text::new(
+                        "Cyclic Inheritance",
+                        termion::style::Reset.to_string(),
+                        termion::color::Red.fg_str(),
+                    )),
+                    d_stuff::Text::new(
+                        format!("'{}'", c.name()),
+                        termion::style::Reset.to_string(),
+                        termion::color::LightBlue.fg_str(),
+                    ),
+                ));
+
+                if let Some(position) = c.position() {
+                    messages.push(position.to_message());
+                }
+
+                d_stuff::Entry::new(
+                    d_stuff::Status::Failure,
+                    d_stuff::Text::new(
+                        "Cycle",
                         termion::style::Bold.to_string(),
                         termion::color::Blue.fg_str(),
                     ),

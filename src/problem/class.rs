@@ -276,7 +276,6 @@ impl Class {
 
     pub fn duplicate(&self, problem: &Problem) -> Result<(), Error> {
         let namings = self.local_naming(problem);
-        println!("{}: {:?}", self.name(), namings);
         check_duplicate(namings)?;
         for x in self.methods.iter() {
             x.duplicate()?;
@@ -342,6 +341,15 @@ impl Class {
             x.check_type(problem)?;
         }
         Ok(())
+    }
+
+    pub fn check_cycle(&self, problem: &Problem) -> Result<(), Error> {
+        let classes = self.super_classes(problem);
+        if classes.contains(&self.id()) {
+            Err(Error::Cyclic { id: self.id() })
+        } else {
+            Ok(())
+        }
     }
 }
 

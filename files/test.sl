@@ -24,11 +24,10 @@ let l: Int =
 // }
 */
 
-class A {
+class A extends B {
     i: Int
 }
-class B extends A {
-    i: Int
+class B {
 }
 
 inst a1: A
@@ -38,7 +37,7 @@ let a: A
 let b: B
 
 constraint C = (
-    a.i = b.i
+    true // a.i = b.i
 )
 
 // maximize (j + 10) as 0..100

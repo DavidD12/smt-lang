@@ -399,6 +399,15 @@ impl Problem {
         Ok(())
     }
 
+    //---------- Cycle ----------
+
+    pub fn check_cycle(&self) -> Result<(), Error> {
+        for x in self.classes.iter() {
+            x.check_cycle(self)?;
+        }
+        Ok(())
+    }
+
     //---------- To Entry ----------
 
     pub fn to_entry(&self) -> d_stuff::Entry {

@@ -50,6 +50,16 @@ pub fn load_file(
         }
         Err(e) => return Err(e),
     }
+    // Check Cycle
+    match problem.check_cycle() {
+        Ok(_) => {
+            if verbose >= 2 {
+                pretty.add(ok_entry("Cycle    "));
+                pretty.print();
+            }
+        }
+        Err(e) => return Err(e),
+    }
     // Duplicate
     match problem.duplicate() {
         Ok(_) => {
@@ -80,7 +90,6 @@ pub fn load_file(
         }
         Err(e) => return Err(e),
     }
-
     // ------------------------- Preprocess ? -------------------------
 
     // Check Empty
