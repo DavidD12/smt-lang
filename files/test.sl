@@ -22,4 +22,21 @@ let l: Int =
 //     _ -> k
 // }
 
+class A {
+    i: Int
+}
+class B extends A {
+    // i: Int
+}
+
+inst a1: A
+inst b1: B
+
+let a: A
+let b: B
+
+constraint C = (
+    a.i = b.i
+)
+
 maximize (j + 10) as 0..100

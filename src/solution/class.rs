@@ -15,13 +15,14 @@ impl ClassInstanceValue {
         let class = smt.problem().get(class).unwrap();
         // Attributes
         let mut attributes = Vec::new();
-        for attribute in class.attributes().iter() {
-            let av = AttributeValue::new(smt, model, instance, attribute.id());
+        for id in class.all_attributes(smt.problem()).iter() {
+            let av = AttributeValue::new(smt, model, instance, *id);
             attributes.push(av);
         }
         // Methods
         let mut methods = Vec::new();
-        for method in class.methods().iter() {
+        for id in class.all_methods(smt.problem()).iter() {
+            let method = smt.problem().get(*id).unwrap();
             let mv = MethodValue::new(smt, model, instance, method);
             methods.push(mv);
         }
