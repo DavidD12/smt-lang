@@ -175,7 +175,7 @@ impl<'a> Smt<'a> {
             let params = method
                 .parameters()
                 .iter()
-                .map(|p| self.to_sort(&p.typ()))
+                .map(|p| self.to_sort(p.typ()))
                 .collect::<Vec<_>>();
             let mut v = Vec::new();
             v.push(sort);
@@ -335,7 +335,7 @@ impl<'a> Smt<'a> {
             let params = method
                 .parameters()
                 .iter()
-                .map(|p| self.to_sort(&p.typ()))
+                .map(|p| self.to_sort(p.typ()))
                 .collect::<Vec<_>>();
             let mut v = Vec::new();
             v.push(sort);
