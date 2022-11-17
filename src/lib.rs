@@ -40,16 +40,6 @@ pub fn load_file(
         }
         Err(e) => return Err(e),
     }
-    // Duplicate
-    match problem.duplicate() {
-        Ok(_) => {
-            if verbose >= 2 {
-                pretty.add(ok_entry("Unicity  "));
-                pretty.print();
-            }
-        }
-        Err(e) => return Err(e),
-    }
     // Resolve Type
     match problem.resolve_type() {
         Ok(_) => {
@@ -60,7 +50,16 @@ pub fn load_file(
         }
         Err(e) => return Err(e),
     }
-
+    // Duplicate
+    match problem.duplicate() {
+        Ok(_) => {
+            if verbose >= 2 {
+                pretty.add(ok_entry("Unicity  "));
+                pretty.print();
+            }
+        }
+        Err(e) => return Err(e),
+    }
     // Check Interval
     match problem.check_interval() {
         Ok(_) => {

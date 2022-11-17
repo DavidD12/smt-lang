@@ -226,7 +226,7 @@ impl Problem {
             x.duplicate()?;
         }
         for x in self.classes.iter() {
-            x.duplicate()?;
+            x.duplicate(self)?;
         }
         for x in self.functions.iter() {
             x.duplicate()?;

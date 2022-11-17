@@ -259,15 +259,25 @@ impl Class {
 
     //---------- Duplicate ----------
 
-    pub fn local_naming(&self) -> Vec<Naming> {
+    pub fn local_naming(&self, problem: &Problem) -> Vec<Naming> {
         let mut v = vec![];
-        v.extend(self.attributes.iter().map(|x| x.naming()));
-        v.extend(self.methods.iter().map(|x| x.naming()));
+        v.extend(
+            self.all_attributes(problem)
+                .iter()
+                .map(|x| problem.get(*x).unwrap().naming()),
+        );
+        v.extend(
+            self.all_methods(problem)
+                .iter()
+                .map(|x| problem.get(*x).unwrap().naming()),
+        );
         v
     }
 
-    pub fn duplicate(&self) -> Result<(), Error> {
-        check_duplicate(self.local_naming())?;
+    pub fn duplicate(&self, problem: &Problem) -> Result<(), Error> {
+        let namings = self.local_naming(problem);
+        println!("{}: {:?}", self.name(), namings);
+        check_duplicate(namings)?;
         for x in self.methods.iter() {
             x.duplicate()?;
         }

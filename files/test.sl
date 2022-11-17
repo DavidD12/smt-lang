@@ -1,3 +1,4 @@
+/*
 let i: Int
 
 let j: Int = i as 11..1000
@@ -21,12 +22,13 @@ let l: Int =
 //     1 -> 0
 //     _ -> k
 // }
+*/
 
 class A {
     i: Int
 }
 class B extends A {
-    // i: Int
+    i: Int
 }
 
 inst a1: A
@@ -39,4 +41,4 @@ constraint C = (
     a.i = b.i
 )
 
-maximize (j + 10) as 0..100
+// maximize (j + 10) as 0..100

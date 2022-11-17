@@ -560,13 +560,13 @@ impl Expr {
             Expr::IfThenElse(c, t, l, e, _) => {
                 // Bool
                 check_type_bool(c, &c.typ(problem))?;
-                for (x, y) in l {
+                for (x, _) in l {
                     check_type_bool(x, &x.typ(problem))?;
                 }
                 // Return Type
                 let typ = &self.typ(problem);
                 check_subtype_type(problem, typ, t, &t.typ(problem))?;
-                for (x, y) in l {
+                for (_, y) in l {
                     check_subtype_type(problem, typ, y, &y.typ(problem))?;
                 }
                 check_subtype_type(problem, typ, e, &e.typ(problem))

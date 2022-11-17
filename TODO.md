@@ -7,7 +7,6 @@
 - print something while computing before solution
 
 - check non cyclic extends
-- check non redifition of attribute, nor method
 - check bounded forall
 - check expression interval
 - alldiff
