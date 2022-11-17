@@ -13,4 +13,4 @@
 - alldiff
 - Count
 
-- type intersection for ITE and others
+- refactor all expression code: expression container: expression + position + type. resolve type change type

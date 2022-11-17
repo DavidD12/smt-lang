@@ -442,7 +442,14 @@ impl Expr {
             Expr::ClassMetCall(_, id, _, _) => problem.get(*id).unwrap().typ().clone(),
             Expr::AsClass(_, id) => Type::Class(*id),
             Expr::AsInterval(_, min, max, _) => Type::Interval(*min, *max),
-            Expr::IfThenElse(_, t, _, _, _) => t.typ(problem),
+            Expr::IfThenElse(_, t, l, e, _) => {
+                let mut res = t.typ(problem);
+                for (_, x) in l.iter() {
+                    res = res.common_type(problem, &x.typ(problem));
+                }
+                res = res.common_type(problem, &e.typ(problem));
+                res
+            }
             Expr::Unresolved(_, _) => Type::Undefined,
             Expr::UnresolvedFunCall(_, _, _) => Type::Undefined,
             Expr::UnresolvedAttribute(_, _, _) => Type::Undefined,
@@ -551,10 +558,15 @@ impl Expr {
             }
             Expr::AsInterval(e, _, _, _) => check_type_integer(e, &e.typ(problem)),
             Expr::IfThenElse(c, t, l, e, _) => {
+                // Bool
                 check_type_bool(c, &c.typ(problem))?;
-                let typ = &t.typ(problem);
                 for (x, y) in l {
                     check_type_bool(x, &x.typ(problem))?;
+                }
+                // Return Type
+                let typ = &self.typ(problem);
+                check_subtype_type(problem, typ, t, &t.typ(problem))?;
+                for (x, y) in l {
                     check_subtype_type(problem, typ, y, &y.typ(problem))?;
                 }
                 check_subtype_type(problem, typ, e, &e.typ(problem))

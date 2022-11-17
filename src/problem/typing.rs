@@ -152,6 +152,28 @@ impl Type {
         }
     }
 
+    pub fn common_type(&self, problem: &Problem, other: &Self) -> Type {
+        if self == other {
+            self.clone()
+        } else {
+            match (self, other) {
+                (Type::Interval(_, _), Type::Int) => Type::Int,
+                (Type::Int, Type::Interval(_, _)) => Type::Int,
+                (Type::Interval(min1, max1), Type::Interval(min2, max2)) => {
+                    Type::Interval(*min1.min(min2), *max1.max(max2))
+                }
+                (Type::Class(i1), Type::Class(i2)) => {
+                    let c1 = problem.get(*i1).unwrap();
+                    match c1.common_class(problem, *i2) {
+                        Some(id) => Type::Class(id),
+                        _ => Type::Undefined,
+                    }
+                }
+                _ => Type::Undefined,
+            }
+        }
+    }
+
     pub fn check_interval(
         &self,
         problem: &Problem,
