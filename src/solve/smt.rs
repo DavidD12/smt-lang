@@ -165,6 +165,7 @@ impl<'a> Smt<'a> {
         for attribute in structure.attributes().iter() {
             let sort = self.structure_sort(structure.id());
             let name = format!("_{}__{}", structure.name(), attribute.name());
+            println!("=> {:?}", attribute.typ());
             let fun = z3::FuncDecl::new(self.ctx, name, &[sort], &self.to_sort(attribute.typ()));
             self.struc_attributes.insert(attribute.id(), fun);
         }
@@ -237,6 +238,9 @@ impl<'a> Smt<'a> {
         for x in self.problem.structures().iter() {
             self.declare_structure(x);
         }
+    }
+
+    fn declare_structures_elements(&mut self) {
         for x in self.problem.structures().iter() {
             self.declare_structure_elements(x);
         }
@@ -391,7 +395,10 @@ impl<'a> Smt<'a> {
         for x in classes.iter() {
             self.declare_class(x);
         }
-        for x in classes.iter() {
+    }
+
+    fn declare_classes_elements(&mut self) {
+        for x in self.problem.classes().iter() {
             self.declare_class_elements(x);
         }
     }
@@ -1040,6 +1047,9 @@ impl<'a> Smt<'a> {
         self.declare_classes();
         self.declare_variables();
         self.declare_functions();
+        // Declare children
+        self.declare_structures_elements();
+        self.declare_classes_elements();
         // Define
         self.define_structures();
         self.define_classes();
