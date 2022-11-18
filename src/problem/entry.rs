@@ -27,6 +27,12 @@ impl Entry {
         Self { name, typ }
     }
 
+    pub fn new_parameter(parameter: &Parameter) -> Self {
+        let name = parameter.name().to_string();
+        let typ = EntryType::Parameter(parameter.clone());
+        Self { name, typ }
+    }
+
     pub fn name(&self) -> &str {
         &self.name
     }
@@ -43,7 +49,6 @@ impl FromId<InstanceId> for Entry {
         Self { name, typ }
     }
 }
-
 impl FromId<VariableId> for Entry {
     fn from_id(problem: &Problem, id: VariableId) -> Self {
         let name = problem.get(id).unwrap().name().into();

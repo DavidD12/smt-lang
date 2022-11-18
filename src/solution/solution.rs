@@ -84,7 +84,7 @@ impl ToLang for Solution {
         // Variables
         for variable in problem.variables().iter() {
             let mut v = variable.clone();
-            v.clear_expr();
+            v.set_expr(None);
             let value = self.variables.get(&v.id()).unwrap();
             s.push_str(&format!(
                 "{} = {}\n",
@@ -95,7 +95,7 @@ impl ToLang for Solution {
         // Functions
         for function in problem.functions().iter() {
             let mut f = function.clone();
-            f.clear_expr();
+            f.set_expr(None);
             let value = self.functions.get(&f.id()).unwrap();
             s.push_str(&format!(
                 "{} = {}\n",

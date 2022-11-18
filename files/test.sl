@@ -24,10 +24,10 @@ let l: Int =
 // }
 */
 
-class A extends B {
+class A {
     i: Int
 }
-class B {
+class B extends A {
 }
 
 inst a1: A
@@ -36,8 +36,16 @@ inst b1: B
 let a: A
 let b: B
 
+
+// let f(i, j: 1..10, a: A, b: A): Real
+let f(a: A): Int
+
 constraint C = (
-    true // a.i = b.i
+    // true // a.i = b.i
+    forall a: B then f(a) = 1 end
+    and 
+    exists a: A then f(a) = 10 end
+    // forall i: 1..10, j: 1..10, a: A, b: A then f(i, j, a, b) = 0.1 end
 )
 
 // maximize (j + 10) as 0..100

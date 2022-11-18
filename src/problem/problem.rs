@@ -238,6 +238,7 @@ impl Problem {
 
     pub fn resolve_type(&mut self) -> Result<(), Error> {
         let entries = self.type_entries();
+        // Types
         for x in self.structures.iter_mut() {
             x.resolve_type(&entries)?;
         }
@@ -253,6 +254,23 @@ impl Problem {
         for x in self.functions.iter_mut() {
             x.resolve_type(&entries)?;
         }
+        // Expr
+        for x in self.structures.iter_mut() {
+            x.resolve_type_expr(&entries)?;
+        }
+        for x in self.classes.iter_mut() {
+            x.resolve_type_expr(&entries)?;
+        }
+        for x in self.variables.iter_mut() {
+            x.resolve_type_expr(&entries)?;
+        }
+        for x in self.functions.iter_mut() {
+            x.resolve_type_expr(&entries)?;
+        }
+        for x in self.constraints.iter_mut() {
+            x.resolve_type_expr(&entries)?;
+        }
+        //
         Ok(())
     }
 

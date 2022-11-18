@@ -1,3 +1,5 @@
+use super::problem::*;
+
 #[derive(Clone)]
 pub struct Combine<T: Clone> {
     elements: Vec<Vec<T>>,
@@ -45,4 +47,24 @@ impl<T: Clone> Combine<T> {
             None
         }
     }
+}
+
+pub fn combine_all(problem: &Problem, parameters: &Vec<Parameter>, expr: &Expr) -> Vec<Expr> {
+    let params_all = parameters.iter().map(|p| p.typ().all(problem)).collect();
+    let params_exp = parameters
+        .iter()
+        .map(|p| Expr::Parameter(p.clone()))
+        .collect::<Vec<_>>();
+    let mut combine = Combine::new(params_all);
+    let mut v = Vec::new();
+    loop {
+        let values = combine.values();
+        let all = params_exp.clone().into_iter().zip(values.clone()).collect();
+        let e = expr.substitute_all(all);
+        v.push(e);
+        if !combine.step() {
+            break;
+        }
+    }
+    v
 }

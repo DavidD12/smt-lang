@@ -24,6 +24,10 @@ impl Parameter {
         &self.name
     }
 
+    pub fn is_same(&self, other: &Parameter) -> bool {
+        self.name == other.name && self.typ == other.typ
+    }
+
     //---------- Bounded ----------
 
     pub fn check_bounded(&self, problem: &Problem) -> Result<(), Error> {

@@ -12,5 +12,10 @@
 - Tuples
 - Array
 - precalcul ?
+- instance (struct and class) specification:
+  inst a1, a2: A {
+    i = 10
+    a = self.a
+  }
 
 - refactor all expression code: expression container: expression + position + type. resolve type change type

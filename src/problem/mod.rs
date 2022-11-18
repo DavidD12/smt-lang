@@ -70,25 +70,30 @@ pub trait WithPosition {
     fn position(&self) -> &Option<Position>;
 }
 
-pub trait WithExpr: Sized + WithPosition + WithType {
+pub trait WithExpr: Clone + Sized + WithPosition + WithType {
     fn expr(&self) -> &Option<Expr>;
-    fn clear_expr(&mut self);
-
-    fn new_expr(&self, expr: Option<Expr>) -> Self;
+    fn set_expr(&mut self, expr: Option<Expr>);
 
     //---------- Resolve ----------
 
     fn entries(&self) -> Entries;
 
+    fn resolve_type_expr(&mut self, entries: &TypeEntries) -> Result<(), Error> {
+        if let Some(e) = &self.expr() {
+            let resolved = e.resolve_type(&entries)?;
+            self.set_expr(Some(resolved));
+        };
+        Ok(())
+    }
+
     fn resolve_expr(&self, problem: &Problem, entries: &Entries) -> Result<Self, Error> {
-        let expr = if let Some(e) = &self.expr() {
+        let mut x = self.clone();
+        if let Some(e) = &self.expr() {
             let entries = entries.add_all(self.entries());
             let resolved = e.resolve(problem, &entries)?;
-            Some(resolved)
-        } else {
-            None
+            x.set_expr(Some(resolved));
         };
-        Ok(self.new_expr(expr))
+        Ok(x)
     }
 
     //---------- Parameter Size ----------

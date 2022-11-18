@@ -138,6 +138,19 @@ impl Structure {
 
     //---------- Resolve ----------
 
+    pub fn resolve_type_expr(&mut self, entries: &TypeEntries) -> Result<(), Error> {
+        // Attribute
+        for x in self.attributes.iter_mut() {
+            x.resolve_type(entries)?;
+        }
+        // Method
+        for x in self.methods.iter_mut() {
+            x.resolve_type(entries)?;
+        }
+        //
+        Ok(())
+    }
+
     pub fn resolve_expr(&self, problem: &Problem, entries: &Entries) -> Result<Structure, Error> {
         // Attribute
         let mut attributes = Vec::new();

@@ -1,6 +1,6 @@
 [package]
 name = "smt-lang"
-version = "0.3.4"
+version = "0.5.0"
 edition = "2021"
 authors = ["David Doose <David.Doose@gmail.com>"]
 license = "LGPL-3.0-only"

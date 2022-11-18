@@ -55,7 +55,7 @@ impl NewMethod<StructureId> for MethodValue<StructureId> {
 impl ToLang for MethodValue<StructureId> {
     fn to_lang(&self, problem: &Problem) -> String {
         let mut meth = problem.get(self.id).unwrap().clone();
-        meth.clear_expr();
+        meth.set_expr(None);
         let mut s = format!("{} {{\n", meth.to_lang(problem));
         for v in self.calls.iter() {
             s.push_str(&format!("        {}\n", v.to_lang(problem)));
@@ -101,7 +101,7 @@ impl NewMethod<ClassId> for MethodValue<ClassId> {
 impl ToLang for MethodValue<ClassId> {
     fn to_lang(&self, problem: &Problem) -> String {
         let mut meth = problem.get(self.id).unwrap().clone();
-        meth.clear_expr();
+        meth.set_expr(None);
         let mut s = format!("{} {{\n", meth.to_lang(problem));
         for v in self.calls.iter() {
             s.push_str(&format!("        {}\n", v.to_lang(problem)));

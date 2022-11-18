@@ -1,4 +1,4 @@
-use crate::combine::Combine;
+use crate::combine::*;
 use crate::problem::*;
 use std::collections::HashMap;
 use z3::ast::Ast;
@@ -211,38 +211,22 @@ impl<'a> Smt<'a> {
                     let inst_expr = Expr::Instance(*instance, None);
                     let expr = expr.substitute(&self_expr, &inst_expr.clone());
                     //
-                    let params_all = method
-                        .parameters()
-                        .iter()
-                        .map(|p| p.typ().all(self.problem))
-                        .collect();
-                    let param_expr = method
-                        .parameters()
-                        .iter()
-                        .map(|p| Expr::Parameter(p.clone()))
-                        .collect::<Vec<_>>();
-                    let mut combine = Combine::new(params_all);
-                    loop {
-                        let values = combine.values();
-                        let all = param_expr
-                            .clone()
-                            .into_iter()
-                            .zip(values.clone())
-                            .collect::<Vec<_>>();
-                        let e = expr.substitute_all(all);
-                        let call = Expr::StrucMetCall(
-                            Box::new(inst_expr.clone()),
-                            method.id(),
-                            values,
-                            None,
-                        );
-                        let cond = Expr::Binary(Box::new(call), BinOp::Eq, Box::new(e), None);
-                        let cond = cond.type_inference(self.problem);
-                        self.solver.assert(&self.to_bool(&cond));
-                        //
-                        if !combine.step() {
-                            break;
-                        }
+                    let l = Box::new(Expr::StrucMetCall(
+                        Box::new(inst_expr),
+                        method.id(),
+                        method
+                            .parameters()
+                            .iter()
+                            .map(|p| Expr::Parameter(p.clone()))
+                            .collect(),
+                        None,
+                    ));
+                    let r = Box::new(expr.clone());
+                    let e = Expr::Binary(l, BinOp::Eq, r, None);
+                    let exprs = combine_all(self.problem, method.parameters(), &e);
+                    for e in exprs.iter() {
+                        let e = e.type_inference(self.problem);
+                        self.solver.assert(&self.to_bool(&e));
                     }
                 }
             }
@@ -371,38 +355,22 @@ impl<'a> Smt<'a> {
                     let inst_expr = Expr::Instance(*instance, None);
                     let expr = expr.substitute(&self_expr, &inst_expr.clone());
                     //
-                    let params_all = method
-                        .parameters()
-                        .iter()
-                        .map(|p| p.typ().all(self.problem))
-                        .collect();
-                    let param_expr = method
-                        .parameters()
-                        .iter()
-                        .map(|p| Expr::Parameter(p.clone()))
-                        .collect::<Vec<_>>();
-                    let mut combine = Combine::new(params_all);
-                    loop {
-                        let values = combine.values();
-                        let all = param_expr
-                            .clone()
-                            .into_iter()
-                            .zip(values.clone())
-                            .collect::<Vec<_>>();
-                        let e = expr.substitute_all(all);
-                        let call = Expr::ClassMetCall(
-                            Box::new(inst_expr.clone()),
-                            method.id(),
-                            values,
-                            None,
-                        );
-                        let cond = Expr::Binary(Box::new(call), BinOp::Eq, Box::new(e), None);
-                        let cond = cond.type_inference(self.problem);
-                        self.solver.assert(&self.to_bool(&cond));
-                        //
-                        if !combine.step() {
-                            break;
-                        }
+                    let l = Box::new(Expr::ClassMetCall(
+                        Box::new(inst_expr),
+                        method.id(),
+                        method
+                            .parameters()
+                            .iter()
+                            .map(|p| Expr::Parameter(p.clone()))
+                            .collect(),
+                        None,
+                    ));
+                    let r = Box::new(expr.clone());
+                    let e = Expr::Binary(l, BinOp::Eq, r, None);
+                    let exprs = combine_all(self.problem, method.parameters(), &e);
+                    for e in exprs.iter() {
+                        let e = e.type_inference(self.problem);
+                        self.solver.assert(&self.to_bool(&e));
                     }
                 }
             }
@@ -550,33 +518,21 @@ impl<'a> Smt<'a> {
 
     fn define_function(&mut self, function: &Function) {
         if let Some(expr) = function.expr() {
-            let params_all = function
-                .parameters()
-                .iter()
-                .map(|p| p.typ().all(self.problem))
-                .collect();
-            let param_expr = function
-                .parameters()
-                .iter()
-                .map(|p| Expr::Parameter(p.clone()))
-                .collect::<Vec<_>>();
-            let mut combine = Combine::new(params_all);
-            loop {
-                let values = combine.values();
-                let all = param_expr
-                    .clone()
-                    .into_iter()
-                    .zip(values.clone())
-                    .collect::<Vec<_>>();
-                let e = expr.substitute_all(all);
-                let call = Expr::FunctionCall(function.id(), values, None);
-                let cond = Expr::Binary(Box::new(call), BinOp::Eq, Box::new(e), None);
-                let cond = cond.type_inference(self.problem);
-                self.solver.assert(&self.to_bool(&cond));
-                //
-                if !combine.step() {
-                    break;
-                }
+            let l = Box::new(Expr::FunctionCall(
+                function.id(),
+                function
+                    .parameters()
+                    .iter()
+                    .map(|p| Expr::Parameter(p.clone()))
+                    .collect(),
+                None,
+            ));
+            let r = Box::new(expr.clone());
+            let e = Expr::Binary(l, BinOp::Eq, r, None);
+            let exprs = combine_all(self.problem, function.parameters(), &e);
+            for e in exprs.iter() {
+                let e = e.type_inference(self.problem);
+                self.solver.assert(&self.to_bool(&e));
             }
         }
     }
@@ -814,6 +770,26 @@ impl<'a> Smt<'a> {
                 }
                 res = c.ite(&t, &res);
                 res
+            }
+            Expr::Forall(p, e, _) => {
+                let exprs = combine_all(self.problem, p, e);
+                let mut v = Vec::new();
+                for e in exprs {
+                    let e = e.type_inference(self.problem);
+                    let e = self.to_bool(&e);
+                    v.push(e);
+                }
+                z3::ast::Bool::and(self.ctx, &v.iter().collect::<Vec<_>>())
+            }
+            Expr::Exists(p, e, _) => {
+                let exprs = combine_all(self.problem, p, e);
+                let mut v = Vec::new();
+                for e in exprs {
+                    let e = e.type_inference(self.problem);
+                    let e = self.to_bool(&e);
+                    v.push(e);
+                }
+                z3::ast::Bool::or(self.ctx, &v.iter().collect::<Vec<_>>())
             }
             _ => panic!("to_bool {:?}", expr),
         }

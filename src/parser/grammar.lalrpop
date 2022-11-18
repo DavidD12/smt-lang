@@ -169,19 +169,27 @@ Search: () = {
 
 //------------------------- Parameter -------------------------
 
-Parameter: Parameter = <i:Identifier> ":" <t:Type> => {
+ParameterList: Vec<Parameter> = <i:Identifier> <l:CommaIdentifier*> ":" <t:Type> => {
     let position = Some(i.position.clone());
-    Parameter::new(i.name, t, position)
+    let mut v = Vec::new();
+    v.push(Parameter::new(i.name, t.clone(), position));
+    for x in l.iter() {
+        let parameter = Parameter::new(x.name.clone(), t.clone(), Some(x.position.clone()));
+        v.push(parameter);
+    }
+    v
 };
 
-Parameters: Vec<Parameter> = <p:Parameter> <l:ParameterNext*> => {
+Parameters: Vec<Parameter> = <p:ParameterList> <l:ParameterNext*> => {
     let mut parameters = Vec::new();
-    parameters.push(p);
-    parameters.extend(l);
+    parameters.extend(p);
+    for x in l.iter() {
+        parameters.extend(x.clone());
+    }
     parameters
 };
 
-ParameterNext: Parameter = "," <p:Parameter> => p;
+ParameterNext: Vec<Parameter> = "," <p:ParameterList> => p;
 
 //------------------------- Assign -------------------------
 
@@ -285,9 +293,23 @@ IfThenElseExpr: Expr = {
         let e = Box::new(e);
         Expr::IfThenElse(c, t, v, e, pos)
     },
-    Term
+    QuantifierExpr
 };
 ElifExpr: (Expr, Expr) = "elif" <x:Expr> "then" <y:Expr> => (x, y);
+
+QuantifierExpr: Expr = {
+    <l:@L>"forall" <p:Parameters> "then" <e:Expr> "end" => {
+        let pos = Some(Position::new(parser.file(), lookup, l));
+        let e = Box::new(e);
+        Expr::Forall(p, e, pos)
+    },
+    <l:@L>"exists" <p:Parameters> "then" <e:Expr> "end" => {
+        let pos = Some(Position::new(parser.file(), lookup, l));
+        let e = Box::new(e);
+        Expr::Exists(p, e, pos)
+    },
+    Term
+};
 
 
 Term: Expr = {

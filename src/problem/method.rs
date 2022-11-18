@@ -143,19 +143,8 @@ impl WithExpr for Method<StructureId> {
         &self.expr
     }
 
-    fn clear_expr(&mut self) {
-        self.expr = None;
-    }
-
-    fn new_expr(&self, expr: Option<Expr>) -> Self {
-        Self {
-            id: self.id,
-            name: self.name.clone(),
-            parameters: self.parameters.clone(),
-            typ: self.typ.clone(),
-            expr,
-            position: self.position.clone(),
-        }
+    fn set_expr(&mut self, expr: Option<Expr>) {
+        self.expr = expr;
     }
 
     fn entries(&self) -> Entries {
@@ -180,19 +169,8 @@ impl WithExpr for Method<ClassId> {
         &self.expr
     }
 
-    fn clear_expr(&mut self) {
-        self.expr = None;
-    }
-
-    fn new_expr(&self, expr: Option<Expr>) -> Self {
-        Self {
-            id: self.id,
-            name: self.name.clone(),
-            parameters: self.parameters.clone(),
-            typ: self.typ.clone(),
-            expr,
-            position: self.position.clone(),
-        }
+    fn set_expr(&mut self, expr: Option<Expr>) {
+        self.expr = expr;
     }
 
     fn entries(&self) -> Entries {

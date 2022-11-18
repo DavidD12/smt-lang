@@ -40,6 +40,12 @@ impl Constraint {
 
     //---------- Resolve ----------
 
+    pub fn resolve_type_expr(&mut self, entries: &TypeEntries) -> Result<(), Error> {
+        let e = self.expr.resolve_type(entries)?;
+        self.expr = e;
+        Ok(())
+    }
+
     pub fn resolve_expr(&self, problem: &Problem, entries: &Entries) -> Result<Constraint, Error> {
         let expr = self.expr.resolve(problem, entries)?;
         Ok(Constraint {
