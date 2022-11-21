@@ -58,7 +58,7 @@ let r: Real = 20
 
 # Syntax
 
-- [Variables and Types and Files](doc/variable.md)
+- [Variables, Types and Files](doc/variable.md)
 - [Boolean Expressions](doc/boolean.md)
 - [Integer and Real Expressions](doc/number.md)
 - [Functions](doc/function.md)
