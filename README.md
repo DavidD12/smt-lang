@@ -58,12 +58,12 @@ let r: Real = 20
 
 # Syntax
 
-- [doc/variable.md](Variables and Types and Files)
-- [doc/boolean.md](Boolean Expressions)
-- [doc/number.md](Integer and Real Expressions)
-- [doc/function.md](Functions)
-- [doc/structure.md](Structures and Instances)
-- [doc/class.md](Classes and Instances)
-- [doc/quantifier.md](Quantifiers Expressions)
+- [Variables and Types and Files](doc/variable.md)
+- [Boolean Expressions](doc/boolean.md)
+- [Integer and Real Expressions](doc/number.md)
+- [Functions](doc/function.md)
+- [Structures and Instances](doc/structure.md)
+- [Classes and Instances](doc/class.md)
+- [Quantifiers Expressions](doc/quantifier.md)
 
-- [doc/search.md](Search: Solve, Minimize, Maximize)
+- [Search: Solve, Minimize, Maximize](doc/search.md)
