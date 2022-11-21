@@ -42,10 +42,10 @@ let f(a: A): Int
 
 constraint C = (
     // true // a.i = b.i
-    forall a: B then f(a) = 1 end
+    forall a: B | f(a) = 1 end
     and 
-    exists a: A then f(a) = 10 end
-    // forall i: 1..10, j: 1..10, a: A, b: A then f(i, j, a, b) = 0.1 end
+    exists a: A | f(a) = 10 end
+    // forall i: 1..10, j: 1..10, a: A, b: A | f(i, j, a, b) = 0.1 end
 )
 
 // maximize (j + 10) as 0..100

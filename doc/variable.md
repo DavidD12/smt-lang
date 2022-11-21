@@ -42,22 +42,28 @@ Our syntax recognize single and multi-line(s) comments:
 */
 ```
 
-## Files
+## Import Files
 
 Other files can be included:
 
-file: *part_1.sl*
+- file *"part_1.sl"*:
 ```
 let i: Int
 constraint c = (i > 0)
 ```
 
-file: *part_2.sl*
+- file *"part_2.sl"*:
 ```
 include "part_1.sl"
 let j: Int = i + 1
 ```
 
+- Solve:
 ```
 smt-lang -f part_2.sl
+```
+- Result:
+```
+let j: Int = 2
+let i: Int = 1
 ```

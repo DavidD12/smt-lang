@@ -165,7 +165,6 @@ impl<'a> Smt<'a> {
         for attribute in structure.attributes().iter() {
             let sort = self.structure_sort(structure.id());
             let name = format!("_{}__{}", structure.name(), attribute.name());
-            println!("=> {:?}", attribute.typ());
             let fun = z3::FuncDecl::new(self.ctx, name, &[sort], &self.to_sort(attribute.typ()));
             self.struc_attributes.insert(attribute.id(), fun);
         }

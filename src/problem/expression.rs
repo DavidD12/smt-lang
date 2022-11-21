@@ -166,6 +166,11 @@ impl Expr {
             (Expr::StrucMetCall(e1, i1, a1, _), Expr::StrucMetCall(e2, i2, a2, _)) => {
                 e1.is_same(e2) && i1 == i2 && Self::all_same(a1, a2)
             }
+            (Expr::ClassSelf(i1, _), Expr::ClassSelf(i2, _)) => i1 == i2,
+            (Expr::ClassAttribute(_, i1, _), Expr::ClassAttribute(_, i2, _)) => i1 == i2,
+            (Expr::ClassMetCall(e1, i1, a1, _), Expr::ClassMetCall(e2, i2, a2, _)) => {
+                e1.is_same(e2) && i1 == i2 && Self::all_same(a1, a2)
+            }
             (Expr::AsClass(e1, i1), Expr::AsClass(e2, i2)) => i1 == i2 && e1.is_same(e2),
             (Expr::AsInterval(e1, min1, max1, _), Expr::AsInterval(e2, min2, max2, _)) => {
                 min1 == min2 && max1 == max2 && e1.is_same(e2)
@@ -1134,7 +1139,7 @@ impl ToLang for Expr {
             Expr::BoolValue(value, _) => format!("{}", value),
             Expr::IntValue(value, _) => format!("{}", value),
             Expr::RealValue(value, _) => format!("{}", value),
-            Expr::Prefix(op, kid, _) => format!("({} {}", op, kid.to_lang(problem)),
+            Expr::Prefix(op, kid, _) => format!("({} {})", op, kid.to_lang(problem)),
             Expr::Binary(left, op, right, _) => format!(
                 "({} {} {})",
                 left.to_lang(problem),
@@ -1224,7 +1229,7 @@ impl ToLang for Expr {
                         s.push_str(&format!(", {}", x.to_lang(problem)));
                     }
                 }
-                s.push_str(&format!(" then {} end", e.to_lang(problem)));
+                s.push_str(&format!(" | {} end", e.to_lang(problem)));
                 s
             }
             Expr::Exists(p, e, _) => {
@@ -1235,7 +1240,7 @@ impl ToLang for Expr {
                         s.push_str(&format!(", {}", x.to_lang(problem)));
                     }
                 }
-                s.push_str(&format!(" then {} end", e.to_lang(problem)));
+                s.push_str(&format!(" | {} end", e.to_lang(problem)));
                 s
             }
             Expr::Unresolved(name, _) => format!("{}?", name),

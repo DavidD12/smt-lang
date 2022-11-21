@@ -298,12 +298,12 @@ IfThenElseExpr: Expr = {
 ElifExpr: (Expr, Expr) = "elif" <x:Expr> "then" <y:Expr> => (x, y);
 
 QuantifierExpr: Expr = {
-    <l:@L>"forall" <p:Parameters> "then" <e:Expr> "end" => {
+    <l:@L>"forall" <p:Parameters> "|" <e:Expr> "end" => {
         let pos = Some(Position::new(parser.file(), lookup, l));
         let e = Box::new(e);
         Expr::Forall(p, e, pos)
     },
-    <l:@L>"exists" <p:Parameters> "then" <e:Expr> "end" => {
+    <l:@L>"exists" <p:Parameters> "|" <e:Expr> "end" => {
         let pos = Some(Position::new(parser.file(), lookup, l));
         let e = Box::new(e);
         Expr::Exists(p, e, pos)

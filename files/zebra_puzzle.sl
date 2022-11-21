@@ -31,11 +31,11 @@ struct House {
 inst House_1, House_2, House_3, House_4, House_5: House
 
 constraint opposite = (
-    forall house: House then house.color.house = house end and
-    forall house: House then house.nationality.house = house end and
-    forall house: House then house.drink.house = house end and
-    forall house: House then house.smoke.house = house end and
-    forall house: House then house.pet.house = house end
+    forall house: House | house.color.house = house end and
+    forall house: House | house.nationality.house = house end and
+    forall house: House | house.drink.house = house end and
+    forall house: House | house.smoke.house = house end and
+    forall house: House | house.pet.house = house end
 )
 
 constraint left = (
