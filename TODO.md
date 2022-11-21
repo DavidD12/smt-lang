@@ -19,3 +19,5 @@
   }
 
 - refactor all expression code: expression container: expression + position + type. resolve type change type
+
+- multi files: define all before, and then resolve all
