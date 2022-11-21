@@ -13,7 +13,7 @@ include = [
     "**/*.rs",
     "**/*.lalrpop",
     "Cargo.toml",
-    "README.md"
+    "Readme_crates.md"
 ]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
