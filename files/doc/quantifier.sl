@@ -8,6 +8,12 @@ inst b1, b2: B
 
 let x, y: A
 
+let i: Int = sum x: 1..10 | x end
+let r: Real = sum x: 1..10 | 1.0 end
+
+let j: Int = prod x: 1..10 | x end
+let s: Real = prod x: 1..10 | 1.0 end
+
 constraint c = (
     forall e: A | e.a > 10 end
     and

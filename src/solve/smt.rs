@@ -851,6 +851,17 @@ impl<'a> Smt<'a> {
                 let max = z3::ast::Int::from_i64(self.ctx, *max as i64);
                 e.lt(&min).ite(&min, &e.gt(&max).ite(&max, &e))
             }
+            Expr::AsInt(e, _) => {
+                let t = &e.typ(self.problem);
+                if t.is_integer() {
+                    self.to_int(e)
+                } else if t.is_real() {
+                    let e = self.to_real(e);
+                    e.to_int()
+                } else {
+                    panic!("AsInt undefined for: {}", e.to_lang(self.problem))
+                }
+            }
             Expr::IfThenElse(c, t, l, e, _) => {
                 let c = self.to_bool(c);
                 let t = self.to_int(t);
@@ -865,6 +876,26 @@ impl<'a> Smt<'a> {
                 }
                 res = c.ite(&t, &res);
                 res
+            }
+            Expr::Sum(p, e, _) => {
+                let exprs = combine_all(self.problem, p, e);
+                let mut v = Vec::new();
+                for e in exprs {
+                    let e = e.type_inference(self.problem);
+                    let e = self.to_int(&e);
+                    v.push(e);
+                }
+                z3::ast::Int::add(self.ctx, &v.iter().collect::<Vec<_>>())
+            }
+            Expr::Prod(p, e, _) => {
+                let exprs = combine_all(self.problem, p, e);
+                let mut v = Vec::new();
+                for e in exprs {
+                    let e = e.type_inference(self.problem);
+                    let e = self.to_int(&e);
+                    v.push(e);
+                }
+                z3::ast::Int::mul(self.ctx, &v.iter().collect::<Vec<_>>())
             }
             _ => panic!("to_int {:?}", expr),
         }
@@ -927,6 +958,17 @@ impl<'a> Smt<'a> {
             Expr::ClassMetCall(e, id, parameters, _) => {
                 self.class_met_call(e, *id, parameters).as_real().unwrap()
             }
+            Expr::AsReal(e, _) => {
+                let t = &e.typ(self.problem);
+                if t.is_real() {
+                    self.to_real(e)
+                } else if t.is_integer() {
+                    let e = self.to_int(e);
+                    e.to_real()
+                } else {
+                    panic!("AsReal undefined for: {}", e.to_lang(self.problem))
+                }
+            }
             Expr::IfThenElse(c, t, l, e, _) => {
                 let c = self.to_bool(c);
                 let t = self.to_real(t);
@@ -941,6 +983,26 @@ impl<'a> Smt<'a> {
                 }
                 res = c.ite(&t, &res);
                 res
+            }
+            Expr::Sum(p, e, _) => {
+                let exprs = combine_all(self.problem, p, e);
+                let mut v = Vec::new();
+                for e in exprs {
+                    let e = e.type_inference(self.problem);
+                    let e = self.to_real(&e);
+                    v.push(e);
+                }
+                z3::ast::Real::add(self.ctx, &v.iter().collect::<Vec<_>>())
+            }
+            Expr::Prod(p, e, _) => {
+                let exprs = combine_all(self.problem, p, e);
+                let mut v = Vec::new();
+                for e in exprs {
+                    let e = e.type_inference(self.problem);
+                    let e = self.to_real(&e);
+                    v.push(e);
+                }
+                z3::ast::Real::mul(self.ctx, &v.iter().collect::<Vec<_>>())
             }
             _ => panic!("to_real {:?}", expr),
         }

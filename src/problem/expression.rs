@@ -98,6 +98,8 @@ pub enum Expr {
     //
     AsClass(Box<Expr>, ClassId),
     AsInterval(Box<Expr>, isize, isize, Option<Position>),
+    AsInt(Box<Expr>, Option<Position>),
+    AsReal(Box<Expr>, Option<Position>),
     //
     IfThenElse(
         Box<Expr>,
@@ -109,6 +111,8 @@ pub enum Expr {
     //
     Forall(Vec<Parameter>, Box<Expr>, Option<Position>),
     Exists(Vec<Parameter>, Box<Expr>, Option<Position>),
+    Sum(Vec<Parameter>, Box<Expr>, Option<Position>),
+    Prod(Vec<Parameter>, Box<Expr>, Option<Position>),
     //
     Unresolved(String, Option<Position>),
     UnresolvedFunCall(String, Vec<Expr>, Option<Position>),
@@ -136,9 +140,13 @@ impl Expr {
             Expr::ClassMetCall(_, _, _, p) => p.clone(),
             Expr::AsClass(_, _) => None,
             Expr::AsInterval(_, _, _, p) => p.clone(),
+            Expr::AsInt(_, p) => p.clone(),
+            Expr::AsReal(_, p) => p.clone(),
             Expr::IfThenElse(_, _, _, _, p) => p.clone(),
             Expr::Forall(_, _, p) => p.clone(),
             Expr::Exists(_, _, p) => p.clone(),
+            Expr::Sum(_, _, p) => p.clone(),
+            Expr::Prod(_, _, p) => p.clone(),
             Expr::Unresolved(_, p) => p.clone(),
             Expr::UnresolvedFunCall(_, _, p) => p.clone(),
             Expr::UnresolvedAttribute(_, _, p) => p.clone(),
@@ -175,6 +183,8 @@ impl Expr {
             (Expr::AsInterval(e1, min1, max1, _), Expr::AsInterval(e2, min2, max2, _)) => {
                 min1 == min2 && max1 == max2 && e1.is_same(e2)
             }
+            (Expr::AsInt(e1, _), Expr::AsInt(e2, _)) => e1.is_same(&e2),
+            (Expr::AsReal(e1, _), Expr::AsReal(e2, _)) => e1.is_same(&e2),
             (Expr::IfThenElse(c1, t1, l1, e1, _), Expr::IfThenElse(c2, t2, l2, e2, _)) => {
                 c1.is_same(c2)
                     && t1.is_same(t2)
@@ -191,6 +201,16 @@ impl Expr {
                     && e1.is_same(e2)
             }
             (Expr::Exists(p1, e1, _), Expr::Exists(p2, e2, _)) => {
+                p1.len() == p2.len()
+                    && p1.iter().zip(p2.iter()).all(|(x1, x2)| x1.is_same(x2))
+                    && e1.is_same(e2)
+            }
+            (Expr::Sum(p1, e1, _), Expr::Sum(p2, e2, _)) => {
+                p1.len() == p2.len()
+                    && p1.iter().zip(p2.iter()).all(|(x1, x2)| x1.is_same(x2))
+                    && e1.is_same(e2)
+            }
+            (Expr::Prod(p1, e1, _), Expr::Prod(p2, e2, _)) => {
                 p1.len() == p2.len()
                     && p1.iter().zip(p2.iter()).all(|(x1, x2)| x1.is_same(x2))
                     && e1.is_same(e2)
@@ -273,6 +293,16 @@ impl Expr {
                 let pos = pos.clone();
                 Ok(Expr::AsInterval(e, *min, *max, pos))
             }
+            Expr::AsInt(e, pos) => {
+                let e = Box::new(e.resolve_type(entries)?);
+                let pos = pos.clone();
+                Ok(Expr::AsInt(e, pos))
+            }
+            Expr::AsReal(e, pos) => {
+                let e = Box::new(e.resolve_type(entries)?);
+                let pos = pos.clone();
+                Ok(Expr::AsReal(e, pos))
+            }
             Expr::IfThenElse(c, t, l, e, pos) => {
                 let c = Box::new(c.resolve_type(entries)?);
                 let t = Box::new(t.resolve_type(entries)?);
@@ -307,6 +337,28 @@ impl Expr {
                 let e = Box::new(e.resolve_type(entries)?);
                 let pos = pos.clone();
                 Ok(Expr::Exists(v, e, pos))
+            }
+            Expr::Sum(p, e, pos) => {
+                let mut v = Vec::new();
+                for x in p.iter() {
+                    let mut x = x.clone();
+                    x.resolve_type(entries)?;
+                    v.push(x);
+                }
+                let e = Box::new(e.resolve_type(entries)?);
+                let pos = pos.clone();
+                Ok(Expr::Sum(v, e, pos))
+            }
+            Expr::Prod(p, e, pos) => {
+                let mut v = Vec::new();
+                for x in p.iter() {
+                    let mut x = x.clone();
+                    x.resolve_type(entries)?;
+                    v.push(x);
+                }
+                let e = Box::new(e.resolve_type(entries)?);
+                let pos = pos.clone();
+                Ok(Expr::Prod(v, e, pos))
             }
             Expr::Unresolved(_, _) => Ok(self.clone()),
             Expr::UnresolvedFunCall(n, p, pos) => {
@@ -405,6 +457,16 @@ impl Expr {
                 let e = e.resolve(problem, entries)?;
                 Ok(Expr::AsInterval(Box::new(e), *min, *max, pos.clone()))
             }
+            Expr::AsInt(e, pos) => {
+                let e = Box::new(e.resolve(problem, entries)?);
+                let pos = pos.clone();
+                Ok(Expr::AsInt(e, pos))
+            }
+            Expr::AsReal(e, pos) => {
+                let e = Box::new(e.resolve(problem, entries)?);
+                let pos = pos.clone();
+                Ok(Expr::AsReal(e, pos))
+            }
             //
             Expr::IfThenElse(c, t, l, e, pos) => {
                 let c = c.resolve(problem, entries)?;
@@ -445,6 +507,28 @@ impl Expr {
                 let e = Box::new(e.resolve(problem, &entries)?);
                 let pos = pos.clone();
                 Ok(Expr::Exists(p, e, pos))
+            }
+            Expr::Sum(p, e, pos) => {
+                let mut entries = entries.clone();
+                for x in p.iter() {
+                    entries = entries.add(Entry::new_parameter(x));
+                }
+                //
+                let p = p.clone();
+                let e = Box::new(e.resolve(problem, &entries)?);
+                let pos = pos.clone();
+                Ok(Expr::Sum(p, e, pos))
+            }
+            Expr::Prod(p, e, pos) => {
+                let mut entries = entries.clone();
+                for x in p.iter() {
+                    entries = entries.add(Entry::new_parameter(x));
+                }
+                //
+                let p = p.clone();
+                let e = Box::new(e.resolve(problem, &entries)?);
+                let pos = pos.clone();
+                Ok(Expr::Prod(p, e, pos))
             }
             //
             Expr::Unresolved(name, position) => match entries.get(&name) {
@@ -614,6 +698,8 @@ impl Expr {
             Expr::ClassMetCall(_, id, _, _) => problem.get(*id).unwrap().typ().clone(),
             Expr::AsClass(_, id) => Type::Class(*id),
             Expr::AsInterval(_, min, max, _) => Type::Interval(*min, *max),
+            Expr::AsInt(_, _) => Type::Int,
+            Expr::AsReal(_, _) => Type::Real,
             Expr::IfThenElse(_, t, l, e, _) => {
                 let mut res = t.typ(problem);
                 for (_, x) in l.iter() {
@@ -624,6 +710,18 @@ impl Expr {
             }
             Expr::Forall(_, _, _) => Type::Bool,
             Expr::Exists(_, _, _) => Type::Bool,
+            Expr::Sum(_, e, _) => match e.typ(problem) {
+                t @ Type::Real => t,
+                t @ Type::Int => t,
+                Type::Interval(_, _) => Type::Int,
+                _ => Type::Undefined,
+            },
+            Expr::Prod(_, e, _) => match e.typ(problem) {
+                t @ Type::Real => t,
+                t @ Type::Int => t,
+                Type::Interval(_, _) => Type::Int,
+                _ => Type::Undefined,
+            },
             Expr::Unresolved(_, _) => Type::Undefined,
             Expr::UnresolvedFunCall(_, _, _) => Type::Undefined,
             Expr::UnresolvedAttribute(_, _, _) => Type::Undefined,
@@ -731,6 +829,8 @@ impl Expr {
                 check_subtype_type(problem, &Type::Class(*id), e, &e.typ(problem))
             }
             Expr::AsInterval(e, _, _, _) => check_type_integer(e, &e.typ(problem)),
+            Expr::AsInt(e, _) => check_type_number(e, &e.typ(problem)),
+            Expr::AsReal(e, _) => check_type_number(e, &e.typ(problem)),
             Expr::IfThenElse(c, t, l, e, _) => {
                 // Bool
                 check_type_bool(c, &c.typ(problem))?;
@@ -752,6 +852,14 @@ impl Expr {
             Expr::Exists(_, e, _) => {
                 e.check_type(problem)?;
                 check_type_bool(e, &e.typ(problem))
+            }
+            Expr::Sum(_, e, _) => {
+                e.check_type(problem)?;
+                check_type_number(e, &e.typ(problem))
+            }
+            Expr::Prod(_, e, _) => {
+                e.check_type(problem)?;
+                check_type_number(e, &e.typ(problem))
             }
             Expr::Unresolved(_, _) => panic!(),
             Expr::UnresolvedFunCall(_, _, _) => panic!(),
@@ -847,6 +955,16 @@ impl Expr {
                 let e = e.type_inference(problem);
                 Expr::AsInterval(Box::new(e), *min, *max, pos.clone())
             }
+            Expr::AsInt(e, pos) => {
+                let e = Box::new(e.type_inference(problem));
+                let pos = pos.clone();
+                Expr::AsInt(e, pos)
+            }
+            Expr::AsReal(e, pos) => {
+                let e = Box::new(e.type_inference(problem));
+                let pos = pos.clone();
+                Expr::AsReal(e, pos)
+            }
             Expr::IfThenElse(c, t, l, e, pos) => {
                 let c = Box::new(c.type_inference(problem));
                 let t = Box::new(t.type_inference(problem));
@@ -869,6 +987,18 @@ impl Expr {
                 let p = p.clone();
                 let pos = pos.clone();
                 Expr::Exists(p, e, pos)
+            }
+            Expr::Sum(p, e, pos) => {
+                let e = Box::new(e.type_inference(problem));
+                let p = p.clone();
+                let pos = pos.clone();
+                Expr::Sum(p, e, pos)
+            }
+            Expr::Prod(p, e, pos) => {
+                let e = Box::new(e.type_inference(problem));
+                let p = p.clone();
+                let pos = pos.clone();
+                Expr::Prod(p, e, pos)
             }
             Expr::Unresolved(_, _) => panic!(),
             Expr::UnresolvedFunCall(_, _, _) => panic!(),
@@ -958,6 +1088,8 @@ impl Expr {
             }
             Expr::AsClass(e, _) => e.check_parameter_size(problem),
             Expr::AsInterval(e, _, _, _) => e.check_parameter_size(problem),
+            Expr::AsInt(e, _) => e.check_parameter_size(problem),
+            Expr::AsReal(e, _) => e.check_parameter_size(problem),
             Expr::IfThenElse(c, t, l, e, _) => {
                 c.check_parameter_size(problem)?;
                 t.check_parameter_size(problem)?;
@@ -969,6 +1101,8 @@ impl Expr {
             }
             Expr::Forall(_, e, _) => e.check_parameter_size(problem),
             Expr::Exists(_, e, _) => e.check_parameter_size(problem),
+            Expr::Sum(_, e, _) => e.check_parameter_size(problem),
+            Expr::Prod(_, e, _) => e.check_parameter_size(problem),
             Expr::Unresolved(_, _) => panic!(),
             Expr::UnresolvedFunCall(_, _, _) => panic!(),
             Expr::UnresolvedAttribute(_, _, _) => panic!(),
@@ -1021,6 +1155,16 @@ impl Expr {
                 Expr::AsInterval(e, min, max, pos) => {
                     Expr::AsInterval(Box::new(e.substitute(old, expr)), *min, *max, pos.clone())
                 }
+                Expr::AsInt(e, pos) => {
+                    let e = Box::new(e.substitute(old, expr));
+                    let pos = pos.clone();
+                    Expr::AsInt(e, pos)
+                }
+                Expr::AsReal(e, pos) => {
+                    let e = Box::new(e.substitute(old, expr));
+                    let pos = pos.clone();
+                    Expr::AsReal(e, pos)
+                }
                 Expr::IfThenElse(c, t, l, e, pos) => {
                     let c = Box::new(c.substitute(old, expr));
                     let t = Box::new(t.substitute(old, expr));
@@ -1043,6 +1187,18 @@ impl Expr {
                     let e = Box::new(e.substitute(old, expr));
                     let pos = pos.clone();
                     Expr::Exists(p, e, pos)
+                }
+                Expr::Sum(p, e, pos) => {
+                    let p = p.clone();
+                    let e = Box::new(e.substitute(old, expr));
+                    let pos = pos.clone();
+                    Expr::Sum(p, e, pos)
+                }
+                Expr::Prod(p, e, pos) => {
+                    let p = p.clone();
+                    let e = Box::new(e.substitute(old, expr));
+                    let pos = pos.clone();
+                    Expr::Prod(p, e, pos)
                 }
                 Expr::Unresolved(_, _) => self.clone(),
                 Expr::UnresolvedFunCall(_, _, _) => panic!(),
@@ -1209,6 +1365,8 @@ impl ToLang for Expr {
             Expr::AsInterval(e, min, max, _) => {
                 format!("({} as {}..{})", e.to_lang(problem), min, max)
             }
+            Expr::AsInt(e, _) => format!("({} as Int)", e.to_lang(problem)),
+            Expr::AsReal(e, _) => format!("({} as Real)", e.to_lang(problem)),
             Expr::IfThenElse(c, t, l, e, _) => {
                 let mut s = format!("if {} then {}", c.to_lang(problem), t.to_lang(problem));
                 for (x, y) in l.iter() {
@@ -1234,6 +1392,28 @@ impl ToLang for Expr {
             }
             Expr::Exists(p, e, _) => {
                 let mut s = "exists ".to_string();
+                if let Some((first, others)) = p.split_first() {
+                    s.push_str(&first.to_lang(problem));
+                    for x in others.iter() {
+                        s.push_str(&format!(", {}", x.to_lang(problem)));
+                    }
+                }
+                s.push_str(&format!(" | {} end", e.to_lang(problem)));
+                s
+            }
+            Expr::Sum(p, e, _) => {
+                let mut s = "sum ".to_string();
+                if let Some((first, others)) = p.split_first() {
+                    s.push_str(&first.to_lang(problem));
+                    for x in others.iter() {
+                        s.push_str(&format!(", {}", x.to_lang(problem)));
+                    }
+                }
+                s.push_str(&format!(" | {} end", e.to_lang(problem)));
+                s
+            }
+            Expr::Prod(p, e, _) => {
+                let mut s = "prod ".to_string();
                 if let Some((first, others)) = p.split_first() {
                     s.push_str(&first.to_lang(problem));
                     for x in others.iter() {

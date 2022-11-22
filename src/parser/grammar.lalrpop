@@ -274,13 +274,21 @@ StructExpr: Expr = {
         let position = Some(i.position);
         Expr::UnresolvedAttribute(Box::new(e), i.name, position)
     },
-    AsIntervalExpr,
+    AsExpr,
 };
 
-AsIntervalExpr: Expr = {
-    <e:AsIntervalExpr> <l:@L>"as" <min:Integer> ".." <max:Integer> => {
+AsExpr: Expr = {
+    <e:AsExpr> <l:@L>"as" <min:Integer> ".." <max:Integer> => {
         let position = Position::new(parser.file(), lookup, l);
         Expr::AsInterval(Box::new(e), min as isize, max as isize, Some(position))
+    },
+    <e:AsExpr> <l:@L>"as" "Int" => {
+        let position = Position::new(parser.file(), lookup, l);
+        Expr::AsInt(Box::new(e), Some(position))
+    },
+    <e:AsExpr> <l:@L>"as" "Real" => {
+        let position = Position::new(parser.file(), lookup, l);
+        Expr::AsReal(Box::new(e), Some(position))
     },
     IfThenElseExpr,
 };
@@ -307,6 +315,16 @@ QuantifierExpr: Expr = {
         let pos = Some(Position::new(parser.file(), lookup, l));
         let e = Box::new(e);
         Expr::Exists(p, e, pos)
+    },
+    <l:@L>"sum" <p:Parameters> "|" <e:Expr> "end" => {
+        let pos = Some(Position::new(parser.file(), lookup, l));
+        let e = Box::new(e);
+        Expr::Sum(p, e, pos)
+    },
+    <l:@L>"prod" <p:Parameters> "|" <e:Expr> "end" => {
+        let pos = Some(Position::new(parser.file(), lookup, l));
+        let e = Box::new(e);
+        Expr::Prod(p, e, pos)
     },
     Term
 };

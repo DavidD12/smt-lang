@@ -211,7 +211,7 @@ impl Type {
                 .map(|i| Expr::Instance(*i, None))
                 .collect(),
             Type::Bool => vec![Expr::BoolValue(false, None), Expr::BoolValue(true, None)],
-            Type::Interval(min, max) => (*min..*max)
+            Type::Interval(min, max) => (*min..=*max)
                 .into_iter()
                 .map(|i| Expr::IntValue(i, None))
                 .collect(),
