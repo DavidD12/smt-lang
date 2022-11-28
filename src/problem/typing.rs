@@ -126,6 +126,10 @@ impl Type {
 
     pub fn is_compatible_with(&self, problem: &Problem, other: &Self) -> bool {
         match (self, other) {
+            // TODO: check
+            // (Type::Interval(min1, max1), Type::Interval(min2, max2)) => {
+            //     (max1 >= min2 && max1 <= max2) || (min1 >= min2 && min1 <= max2)
+            // }
             (Type::Interval(_, _), Type::Interval(_, _)) => true,
             (Type::Interval(_, _), Type::Int) => true,
             (Type::Int, Type::Interval(_, _)) => true,

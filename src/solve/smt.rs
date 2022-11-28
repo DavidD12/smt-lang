@@ -188,6 +188,30 @@ impl<'a> Smt<'a> {
     fn define_structure(&mut self, structure: &Structure) {
         // Attribute
         for attribute in structure.attributes().iter() {
+            match attribute.typ() {
+                Type::Interval(min, max) => {
+                    for instance in structure.instances(self.problem).iter() {
+                        let inst_expr = Expr::Instance(*instance, None);
+                        let att_expr =
+                            Expr::StrucAttribute(Box::new(inst_expr), attribute.id(), None);
+                        let e = Expr::Binary(
+                            Box::new(att_expr.clone()),
+                            BinOp::Ge,
+                            Box::new(Expr::IntValue(*min, None)),
+                            None,
+                        );
+                        self.solver.assert(&self.to_bool(&e));
+                        let e = Expr::Binary(
+                            Box::new(att_expr),
+                            BinOp::Le,
+                            Box::new(Expr::IntValue(*max, None)),
+                            None,
+                        );
+                        self.solver.assert(&self.to_bool(&e));
+                    }
+                }
+                _ => {}
+            }
             if let Some(expr) = attribute.expr() {
                 for instance in structure.instances(self.problem).iter() {
                     // Self
@@ -204,6 +228,35 @@ impl<'a> Smt<'a> {
         }
         // Method
         for method in structure.methods().iter() {
+            match method.typ() {
+                Type::Interval(min, max) => {
+                    let p = Parameter::new("_x", Type::Structure(structure.id()), None);
+                    let mut parameters = vec![p.clone()];
+                    parameters.extend(method.parameters().clone());
+
+                    let param_expr = method
+                        .parameters()
+                        .iter()
+                        .map(|p| Expr::Parameter(p.clone()))
+                        .collect::<Vec<_>>();
+
+                    let min = Box::new(Expr::IntValue(*min, None));
+                    let param = Expr::Parameter(p.clone());
+                    let l =
+                        Expr::StrucMetCall(Box::new(param), method.id(), param_expr.clone(), None);
+                    let l = Expr::Binary(Box::new(l), BinOp::Ge, min, None);
+                    let max = Box::new(Expr::IntValue(*max, None));
+                    let param = Expr::Parameter(p.clone());
+                    let r = Expr::StrucMetCall(Box::new(param), method.id(), param_expr, None);
+                    let r = Expr::Binary(Box::new(r), BinOp::Le, max, None);
+
+                    let e = Expr::Binary(Box::new(l), BinOp::And, Box::new(r), None);
+                    let e = Expr::Forall(parameters, Box::new(e), None);
+                    let e = self.to_bool(&e);
+                    self.solver.assert(&e);
+                }
+                _ => {}
+            }
             if let Some(expr) = method.expr() {
                 for instance in structure.instances(self.problem).iter() {
                     // Self
@@ -335,6 +388,30 @@ impl<'a> Smt<'a> {
     fn define_class(&mut self, class: &Class) {
         // Attribute
         for attribute in class.attributes().iter() {
+            match attribute.typ() {
+                Type::Interval(min, max) => {
+                    for instance in class.instances(self.problem).iter() {
+                        let inst_expr = Expr::Instance(*instance, None);
+                        let att_expr =
+                            Expr::ClassAttribute(Box::new(inst_expr), attribute.id(), None);
+                        let e = Expr::Binary(
+                            Box::new(att_expr.clone()),
+                            BinOp::Ge,
+                            Box::new(Expr::IntValue(*min, None)),
+                            None,
+                        );
+                        self.solver.assert(&self.to_bool(&e));
+                        let e = Expr::Binary(
+                            Box::new(att_expr),
+                            BinOp::Le,
+                            Box::new(Expr::IntValue(*max, None)),
+                            None,
+                        );
+                        self.solver.assert(&self.to_bool(&e));
+                    }
+                }
+                _ => {}
+            }
             if let Some(expr) = attribute.expr() {
                 for instance in class.instances(self.problem).iter() {
                     // Self
@@ -351,6 +428,35 @@ impl<'a> Smt<'a> {
         }
         // Method
         for method in class.methods().iter() {
+            match method.typ() {
+                Type::Interval(min, max) => {
+                    let p = Parameter::new("_x", Type::Class(class.id()), None);
+                    let mut parameters = vec![p.clone()];
+                    parameters.extend(method.parameters().clone());
+
+                    let param_expr = method
+                        .parameters()
+                        .iter()
+                        .map(|p| Expr::Parameter(p.clone()))
+                        .collect::<Vec<_>>();
+
+                    let min = Box::new(Expr::IntValue(*min, None));
+                    let param = Expr::Parameter(p.clone());
+                    let l =
+                        Expr::ClassMetCall(Box::new(param), method.id(), param_expr.clone(), None);
+                    let l = Expr::Binary(Box::new(l), BinOp::Ge, min, None);
+                    let max = Box::new(Expr::IntValue(*max, None));
+                    let param = Expr::Parameter(p.clone());
+                    let r = Expr::ClassMetCall(Box::new(param), method.id(), param_expr, None);
+                    let r = Expr::Binary(Box::new(r), BinOp::Le, max, None);
+
+                    let e = Expr::Binary(Box::new(l), BinOp::And, Box::new(r), None);
+                    let e = Expr::Forall(parameters, Box::new(e), None);
+                    let e = self.to_bool(&e);
+                    self.solver.assert(&e);
+                }
+                _ => {}
+            }
             if let Some(expr) = method.expr() {
                 for instance in class.instances(self.problem).iter() {
                     // Self
@@ -523,6 +629,28 @@ impl<'a> Smt<'a> {
     }
 
     fn define_function(&mut self, function: &Function) {
+        match function.typ() {
+            Type::Interval(min, max) => {
+                let param_expr = function
+                    .parameters()
+                    .iter()
+                    .map(|p| Expr::Parameter(p.clone()))
+                    .collect::<Vec<_>>();
+
+                let min = Box::new(Expr::IntValue(*min, None));
+                let l = Expr::FunctionCall(function.id(), param_expr.clone(), None);
+                let l = Expr::Binary(Box::new(l), BinOp::Ge, min, None);
+                let max = Box::new(Expr::IntValue(*max, None));
+                let r = Expr::FunctionCall(function.id(), param_expr, None);
+                let r = Expr::Binary(Box::new(r), BinOp::Le, max, None);
+
+                let e = Expr::Binary(Box::new(l), BinOp::And, Box::new(r), None);
+                let e = Expr::Forall(function.parameters().clone(), Box::new(e), None);
+                let e = self.to_bool(&e);
+                self.solver.assert(&e);
+            }
+            _ => {}
+        }
         if let Some(expr) = function.expr() {
             let l = Box::new(Expr::FunctionCall(
                 function.id(),
