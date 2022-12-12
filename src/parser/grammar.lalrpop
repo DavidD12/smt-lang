@@ -364,7 +364,7 @@ ImpliesOrOp: BinOp = {
 
 CompOp: BinOp = {
     "=" => BinOp::Eq,
-    "/=" => BinOp::Ne,
+    "!=" => BinOp::Ne,
     "<" => BinOp::Lt,
     "<=" => BinOp::Le,
     ">=" => BinOp::Ge,

@@ -47,7 +47,7 @@ impl std::fmt::Display for BinOp {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Eq => write!(f, "="),
-            Self::Ne => write!(f, "/="),
+            Self::Ne => write!(f, "!="),
             Self::Lt => write!(f, "<"),
             Self::Le => write!(f, "<="),
             Self::Ge => write!(f, ">="),

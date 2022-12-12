@@ -14,6 +14,16 @@ impl Value {
         let t = &expr.typ(smt.problem());
         let expr = &expr.type_inference(smt.problem());
         if t.is_bool() {
+            // TODO
+            // let e = smt.to_bool(expr);
+            // let x = model.eval(&e, false).unwrap();
+            // println!(
+            //     "{}: {:?} = {:?} {}",
+            //     expr.to_lang(smt.problem()),
+            //     e,
+            //     x,
+            //     x == e
+            // );
             let value = model
                 .eval(&smt.to_bool(expr), true)
                 .unwrap()

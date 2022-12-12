@@ -58,25 +58,25 @@ constraint R02 = (Englishman.house.color = Red)
 constraint R03 = (Spaniard.house.pet = Dog)
 constraint R04 = (Green.house.drink = Coffee)
 constraint R05 = (Ukrainian.house.drink = Tea)
-constraint R06 = (Green.house.left.color = Ivory and Green.house /= House_1)
+constraint R06 = (Green.house.left.color = Ivory and Green.house != House_1)
 constraint R07 = (Old_Gold.house.pet = Snails)
 constraint R08 = (Yellow.house.smoke = Kools)
 constraint R09 = (House_3.drink = Milk)
 constraint R10 = (House_1.nationality = Norwegian)
 constraint R11 = (
-    (Chesterfield.house.left.pet = Fox and Chesterfield.house /= House_1) 
+    (Chesterfield.house.left.pet = Fox and Chesterfield.house != House_1) 
     or
-    (Chesterfield.house.right.pet = Fox and Chesterfield.house /= House_5) 
+    (Chesterfield.house.right.pet = Fox and Chesterfield.house != House_5) 
 )
 constraint R12 = (
-    (Kools.house.left.pet = Horse and Kools.house /= House_1)
+    (Kools.house.left.pet = Horse and Kools.house != House_1)
     or
-    (Kools.house.right.pet = Horse and Kools.house /= House_5)
+    (Kools.house.right.pet = Horse and Kools.house != House_5)
 )
 constraint R13 = (Lucky_Strike.house.drink = Orange_juice)
 constraint R14 = (Japanese.house.smoke = Parliament)
 constraint R15 = (
-    (Norwegian.house.left.color = Blue and Norwegian.house /= House_1) 
+    (Norwegian.house.left.color = Blue and Norwegian.house != House_1) 
     or 
-    (Norwegian.house.right.color = Blue and Norwegian.house /= House_5)
+    (Norwegian.house.right.color = Blue and Norwegian.house != House_5)
 )

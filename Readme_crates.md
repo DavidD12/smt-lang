@@ -2,13 +2,11 @@ SMT-language is a simple input language (parsing/resolve/typing/translate/import
 
 # Install
 
-1. Intall z3 prover
-   1. Ubuntu
+1. Install Rust: [Rust](https://www.rust-lang.org/fr)
+2. Install clang: 
    ```console
-    xxx@XXX:~$ sudo apt install z3
+    xxx@XXX:~$ sudo apt install clang
     ```
-   2. Or see [Z3Prover](https://github.com/Z3Prover/z3)
-2. Install Rust: [Rust](https://www.rust-lang.org/fr)
 3. Install SMT-Language:
    ```console
     xxx@XXX:~$ cargo install smt-lang
