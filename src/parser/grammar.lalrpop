@@ -242,17 +242,26 @@ AddSubExpr: Expr = {
 };
 
 MulDivExpr: Expr = {
-    <left:MulDivExpr> <l:@L><op:MulDivOp> <right:PreExpr> => {
+    <left:MulDivExpr> <l:@L><op:MulDivOp> <right:UnaryExpr> => {
         let position = Some(Position::new(parser.file(), lookup, l));
         Expr::Binary(Box::new(left), op, Box::new(right), position)
     },
-    PreExpr,
+    UnaryExpr,
 };
 
-PreExpr: Expr = {
-    <l:@L><op:PreOp> <e: PreExpr> => {
+UnaryExpr: Expr = {
+    <l:@L><op:UnaryOp> <e: UnaryExpr> => {
         let position = Some(Position::new(parser.file(), lookup, l));
-        Expr::Prefix(op, Box::new(e), position)
+        Expr::Unary(op, Box::new(e), position)
+    },
+    PreNaryExpr,
+};
+
+PreNaryExpr: Expr = {
+    <l:@L><op:PreNaryOp> "(" <v: TupleExpr> ")" => {
+        let position = Some(Position::new(parser.file(), lookup, l));
+        // TODO Expr::UnaryNary(op, v, position)
+        todo!()
     },
     FunCallExpr,
 };
@@ -306,25 +315,22 @@ IfThenElseExpr: Expr = {
 ElifExpr: (Expr, Expr) = "elif" <x:Expr> "then" <y:Expr> => (x, y);
 
 QuantifierExpr: Expr = {
-    <l:@L>"forall" <p:Parameters> "|" <e:Expr> "end" => {
+    <l:@L><op:QtOp><p:Parameters> "|" <e:Expr> "end" => {
         let pos = Some(Position::new(parser.file(), lookup, l));
         let e = Box::new(e);
-        Expr::Forall(p, e, pos)
+        Expr::Quantifier(op, p, e, pos)
     },
-    <l:@L>"exists" <p:Parameters> "|" <e:Expr> "end" => {
+    <l:@L>"min" <p:Parameters> "|" <e:Expr> "end" => {
         let pos = Some(Position::new(parser.file(), lookup, l));
         let e = Box::new(e);
-        Expr::Exists(p, e, pos)
+        // Expr::Min(p, e, pos) // TODO
+        todo!()
     },
-    <l:@L>"sum" <p:Parameters> "|" <e:Expr> "end" => {
+    <l:@L>"max" <p:Parameters> "|" <e:Expr> "end" => {
         let pos = Some(Position::new(parser.file(), lookup, l));
         let e = Box::new(e);
-        Expr::Sum(p, e, pos)
-    },
-    <l:@L>"prod" <p:Parameters> "|" <e:Expr> "end" => {
-        let pos = Some(Position::new(parser.file(), lookup, l));
-        let e = Box::new(e);
-        Expr::Prod(p, e, pos)
+        // Expr::Max(p, e, pos) // TODO
+        todo!()
     },
     Term
 };
@@ -381,9 +387,21 @@ MulDivOp: BinOp = {
     "/" => BinOp::Div,
 };
 
-PreOp: PreOp = {
-    "not" => PreOp::Not,
-    "-" => PreOp::Minus,
+UnaryOp: UnaryOp = {
+    "not" => UnaryOp::Not,
+    "-" => UnaryOp::Minus,
+};
+
+QtOp: QtOp = {
+    "forall" => QtOp::Forall,
+    "exists" => QtOp::Exists,
+    "sum" => QtOp::Sum,
+    "prod" => QtOp::Prod,
+};
+
+PreNaryOp: UnaryOp = {
+    "min" => todo!(), // TODO PreNaryOp::Min,
+    "max" => todo!(), // TODO PreNaryOp::Max,
 };
 
 //========================= Util =========================

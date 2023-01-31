@@ -1,8 +1,5 @@
-let f(i: 1..10, j: 1..10): Bool = i > j
-
-let x: Bool
-let i: Int
+let f(i: 1..3, j: 1..2): Bool
 
 constraint c = (
-    (x or not x)
+    f(1, 1) and not f(1, 2)
 )

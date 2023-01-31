@@ -11,6 +11,19 @@ pub struct FunctionValue {
 
 impl FunctionValue {
     pub fn new(smt: &Smt, model: &z3::Model, function: &Function) -> Self {
+        //
+        let fun = smt.function(function.id());
+        let i = z3::ast::Int::fresh_const(smt.ctx(), "i");
+        let j = z3::ast::Int::fresh_const(smt.ctx(), "j");
+        let app = fun.apply(&[&i, &j]);
+        let e = model.eval(&app, false).unwrap();
+        println!("{:?}", e);
+        //
+        let i = z3::ast::Int::from_i64(smt.ctx(), 1);
+        let app = fun.apply(&[&i, &j]);
+        let e = model.eval(&app, false).unwrap();
+        println!("{:?}", e);
+        //
         let mut calls = Vec::new();
         //
         let params_all = function

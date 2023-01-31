@@ -122,6 +122,10 @@ impl<'a> Smt<'a> {
         self.problem
     }
 
+    pub fn ctx(&self) -> &'a z3::Context {
+        self.ctx
+    }
+
     pub fn solver(&self) -> &Z3Solver {
         &self.solver
     }
@@ -251,7 +255,7 @@ impl<'a> Smt<'a> {
                     let r = Expr::Binary(Box::new(r), BinOp::Le, max, None);
 
                     let e = Expr::Binary(Box::new(l), BinOp::And, Box::new(r), None);
-                    let e = Expr::Forall(parameters, Box::new(e), None);
+                    let e = Expr::Quantifier(QtOp::Forall, parameters, Box::new(e), None);
                     let e = self.to_bool(&e);
                     self.solver.assert(&e);
                 }
@@ -451,7 +455,7 @@ impl<'a> Smt<'a> {
                     let r = Expr::Binary(Box::new(r), BinOp::Le, max, None);
 
                     let e = Expr::Binary(Box::new(l), BinOp::And, Box::new(r), None);
-                    let e = Expr::Forall(parameters, Box::new(e), None);
+                    let e = Expr::Quantifier(QtOp::Forall, parameters, Box::new(e), None);
                     let e = self.to_bool(&e);
                     self.solver.assert(&e);
                 }
@@ -645,7 +649,12 @@ impl<'a> Smt<'a> {
                 let r = Expr::Binary(Box::new(r), BinOp::Le, max, None);
 
                 let e = Expr::Binary(Box::new(l), BinOp::And, Box::new(r), None);
-                let e = Expr::Forall(function.parameters().clone(), Box::new(e), None);
+                let e = Expr::Quantifier(
+                    QtOp::Forall,
+                    function.parameters().clone(),
+                    Box::new(e),
+                    None,
+                );
                 let e = self.to_bool(&e);
                 self.solver.assert(&e);
             }
@@ -806,8 +815,8 @@ impl<'a> Smt<'a> {
     pub fn to_bool(&self, expr: &Expr) -> z3::ast::Bool<'a> {
         match expr {
             Expr::BoolValue(value, _) => z3::ast::Bool::from_bool(self.ctx, *value),
-            Expr::Prefix(op, e, _) => match op {
-                PreOp::Not => {
+            Expr::Unary(op, e, _) => match op {
+                UnaryOp::Not => {
                     let e = self.to_bool(e);
                     z3::ast::Bool::not(&e)
                 }
@@ -905,7 +914,7 @@ impl<'a> Smt<'a> {
                 res = c.ite(&t, &res);
                 res
             }
-            Expr::Forall(p, e, _) => {
+            Expr::Quantifier(op, p, e, _) => {
                 let exprs = combine_all(self.problem, p, e);
                 let mut v = Vec::new();
                 for e in exprs {
@@ -913,17 +922,11 @@ impl<'a> Smt<'a> {
                     let e = self.to_bool(&e);
                     v.push(e);
                 }
-                z3::ast::Bool::and(self.ctx, &v.iter().collect::<Vec<_>>())
-            }
-            Expr::Exists(p, e, _) => {
-                let exprs = combine_all(self.problem, p, e);
-                let mut v = Vec::new();
-                for e in exprs {
-                    let e = e.type_inference(self.problem);
-                    let e = self.to_bool(&e);
-                    v.push(e);
+                match op {
+                    QtOp::Forall => z3::ast::Bool::and(self.ctx, &v.iter().collect::<Vec<_>>()),
+                    QtOp::Exists => z3::ast::Bool::or(self.ctx, &v.iter().collect::<Vec<_>>()),
+                    _ => panic!("to_bool {:?}", expr),
                 }
-                z3::ast::Bool::or(self.ctx, &v.iter().collect::<Vec<_>>())
             }
             _ => panic!("to_bool {:?}", expr),
         }
@@ -932,8 +935,8 @@ impl<'a> Smt<'a> {
     pub fn to_int(&self, expr: &Expr) -> z3::ast::Int<'a> {
         match expr {
             Expr::IntValue(value, _) => z3::ast::Int::from_i64(self.ctx, *value as i64),
-            Expr::Prefix(op, e, _) => match op {
-                PreOp::Minus => {
+            Expr::Unary(op, e, _) => match op {
+                UnaryOp::Minus => {
                     let e = self.to_int(&e);
                     e.unary_minus()
                 }
@@ -1005,7 +1008,7 @@ impl<'a> Smt<'a> {
                 res = c.ite(&t, &res);
                 res
             }
-            Expr::Sum(p, e, _) => {
+            Expr::Quantifier(op, p, e, _) => {
                 let exprs = combine_all(self.problem, p, e);
                 let mut v = Vec::new();
                 for e in exprs {
@@ -1013,17 +1016,11 @@ impl<'a> Smt<'a> {
                     let e = self.to_int(&e);
                     v.push(e);
                 }
-                z3::ast::Int::add(self.ctx, &v.iter().collect::<Vec<_>>())
-            }
-            Expr::Prod(p, e, _) => {
-                let exprs = combine_all(self.problem, p, e);
-                let mut v = Vec::new();
-                for e in exprs {
-                    let e = e.type_inference(self.problem);
-                    let e = self.to_int(&e);
-                    v.push(e);
+                match op {
+                    QtOp::Sum => z3::ast::Int::add(self.ctx, &v.iter().collect::<Vec<_>>()),
+                    QtOp::Prod => z3::ast::Int::mul(self.ctx, &v.iter().collect::<Vec<_>>()),
+                    _ => panic!("to_int {:?}", expr),
                 }
-                z3::ast::Int::mul(self.ctx, &v.iter().collect::<Vec<_>>())
             }
             _ => panic!("to_int {:?}", expr),
         }
@@ -1036,8 +1033,8 @@ impl<'a> Smt<'a> {
                 *value.numer().unwrap() as i32,
                 *value.denom().unwrap() as i32,
             ),
-            Expr::Prefix(op, e, _) => match op {
-                PreOp::Minus => {
+            Expr::Unary(op, e, _) => match op {
+                UnaryOp::Minus => {
                     let e = self.to_real(&e);
                     e.unary_minus()
                 }
@@ -1112,7 +1109,7 @@ impl<'a> Smt<'a> {
                 res = c.ite(&t, &res);
                 res
             }
-            Expr::Sum(p, e, _) => {
+            Expr::Quantifier(op, p, e, _) => {
                 let exprs = combine_all(self.problem, p, e);
                 let mut v = Vec::new();
                 for e in exprs {
@@ -1120,17 +1117,11 @@ impl<'a> Smt<'a> {
                     let e = self.to_real(&e);
                     v.push(e);
                 }
-                z3::ast::Real::add(self.ctx, &v.iter().collect::<Vec<_>>())
-            }
-            Expr::Prod(p, e, _) => {
-                let exprs = combine_all(self.problem, p, e);
-                let mut v = Vec::new();
-                for e in exprs {
-                    let e = e.type_inference(self.problem);
-                    let e = self.to_real(&e);
-                    v.push(e);
+                match op {
+                    QtOp::Sum => z3::ast::Real::add(self.ctx, &v.iter().collect::<Vec<_>>()),
+                    QtOp::Prod => z3::ast::Real::mul(self.ctx, &v.iter().collect::<Vec<_>>()),
+                    _ => panic!("to_real {:?}", expr),
                 }
-                z3::ast::Real::mul(self.ctx, &v.iter().collect::<Vec<_>>())
             }
             _ => panic!("to_real {:?}", expr),
         }

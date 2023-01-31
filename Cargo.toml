@@ -9,12 +9,7 @@ repository = "https://github.com/DavidD12/smt-lang"
 readme = "README.md"
 keywords = ["smt", "z3", "language", "solver"]
 # exclude = ["files/*"]
-include = [
-    "**/*.rs",
-    "**/*.lalrpop",
-    "Cargo.toml",
-    "Readme_crates.md"
-]
+include = ["**/*.rs", "**/*.lalrpop", "Cargo.toml", "Readme_crates.md"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -25,7 +20,7 @@ regex = "1.6.0"
 line-col = "0.2.1"
 z3 = "0.11.2"
 clap = { version = "4.0.18", features = ["derive"] }
-fraction = "0.12.1"
+fraction = "0.13.0"
 d-stu = "0.1.5"
 termion = "2.0.1"
 
@@ -39,4 +34,3 @@ path = "src/lib.rs"
 [[bin]]
 name = "smt-lang"
 path = "bin/main.rs"
-
