@@ -48,6 +48,12 @@ impl Expr {
                     panic!("undefined")
                 }
             }
+            Expr::Nary(_, v, _) => {
+                for e in v.iter() {
+                    e.check_type(problem)?;
+                }
+                check_type_number(self, &self.typ(problem))
+            }
             Expr::FunctionCall(id, params, _) => {
                 for p in params.iter() {
                     p.check_type(problem)?;
@@ -124,6 +130,8 @@ impl Expr {
                     QtOp::Exists => check_type_bool(e, &e.typ(problem)),
                     QtOp::Sum => check_type_number(e, &e.typ(problem)),
                     QtOp::Prod => check_type_number(e, &e.typ(problem)),
+                    QtOp::Min => check_type_number(e, &e.typ(problem)),
+                    QtOp::Max => check_type_number(e, &e.typ(problem)),
                 }
             }
             Expr::Unresolved(_, _) => panic!(),

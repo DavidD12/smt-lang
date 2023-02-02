@@ -7,6 +7,16 @@ pub enum Search {
 }
 
 impl Search {
+    pub fn resolve_type_expr(&self, entries: &TypeEntries) -> Result<Self, Error> {
+        match self {
+            Search::Solve => Ok(self.clone()),
+            Search::Optimize(e, minimize) => {
+                let e = e.resolve_type(entries)?;
+                Ok(Search::Optimize(Box::new(e), *minimize))
+            }
+        }
+    }
+
     pub fn resolve_expr(&self, problem: &Problem, entries: &Entries) -> Result<Self, Error> {
         match self {
             Search::Solve => Ok(self.clone()),

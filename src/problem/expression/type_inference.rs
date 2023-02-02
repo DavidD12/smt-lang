@@ -30,6 +30,10 @@ impl Expr {
                 }
                 Expr::Binary(Box::new(left), *op, Box::new(right), pos.clone())
             }
+            Expr::Nary(o, v, p) => {
+                let l = v.iter().map(|e| e.type_inference(problem)).collect();
+                Expr::Nary(*o, l, p.clone())
+            }
             Expr::Variable(_, _) => self.clone(),
             Expr::Parameter(_) => self.clone(),
             Expr::FunctionCall(id, params, pos) => {

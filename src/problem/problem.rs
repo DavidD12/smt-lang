@@ -270,6 +270,9 @@ impl Problem {
         for x in self.constraints.iter_mut() {
             x.resolve_type_expr(&entries)?;
         }
+        // Optimize
+        let s = self.search.resolve_type_expr(&entries)?;
+        self.search = s;
         //
         Ok(())
     }

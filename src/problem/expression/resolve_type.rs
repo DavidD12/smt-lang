@@ -18,6 +18,14 @@ impl Expr {
                 let pos = pos.clone();
                 Ok(Expr::Binary(l, *o, r, pos))
             }
+            Expr::Nary(o, kids, pos) => {
+                let pos = pos.clone();
+                let mut v = Vec::new();
+                for e in kids.iter() {
+                    v.push(e.resolve_type(entries)?);
+                }
+                Ok(Expr::Nary(*o, v, pos))
+            }
             Expr::Variable(_, _) => Ok(self.clone()),
             Expr::Parameter(p) => {
                 let mut p = p.clone();

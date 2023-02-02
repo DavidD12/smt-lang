@@ -140,8 +140,7 @@ impl<'a> Smt<'a> {
             Type::Interval(_, _) => z3::Sort::int(self.ctx),
             Type::Structure(id) => self.struc_sort.get(id).unwrap().clone(),
             Type::Class(id) => self.class_datatype_sort.get(id).unwrap().sort.clone(),
-            Type::Unresolved(_, _) => panic!(),
-            Type::Undefined => panic!(),
+            _ => panic!(),
         }
     }
 
@@ -572,8 +571,7 @@ impl<'a> Smt<'a> {
                 let v = z3::ast::Datatype::new_const(self.ctx, variable.name(), sort);
                 self.datatype_variables.insert(variable.id(), v);
             }
-            Type::Unresolved(_, _) => panic!(),
-            Type::Undefined => panic!(),
+            _ => panic!(),
         }
     }
 
@@ -956,6 +954,22 @@ impl<'a> Smt<'a> {
                     panic!()
                 }
             }
+            Expr::Nary(op, v, _) => {
+                if let Some((last, others)) = v.split_last() {
+                    let mut x = self.to_int(last);
+                    for e in others.iter() {
+                        let y = self.to_int(e);
+                        let cond = match op {
+                            NaryOp::Min => x.le(&y),
+                            NaryOp::Max => x.ge(&y),
+                        };
+                        x = cond.ite(&x, &y);
+                    }
+                    x
+                } else {
+                    panic!("to_int {:?}", expr)
+                }
+            }
             Expr::Variable(id, _) => self.int_variable(*id).clone(),
             Expr::FunctionCall(id, parameters, _) => {
                 self.fun_call(*id, parameters).as_int().unwrap()
@@ -1010,15 +1024,28 @@ impl<'a> Smt<'a> {
             }
             Expr::Quantifier(op, p, e, _) => {
                 let exprs = combine_all(self.problem, p, e);
-                let mut v = Vec::new();
-                for e in exprs {
-                    let e = e.type_inference(self.problem);
-                    let e = self.to_int(&e);
-                    v.push(e);
-                }
                 match op {
-                    QtOp::Sum => z3::ast::Int::add(self.ctx, &v.iter().collect::<Vec<_>>()),
-                    QtOp::Prod => z3::ast::Int::mul(self.ctx, &v.iter().collect::<Vec<_>>()),
+                    QtOp::Sum => {
+                        let mut v = Vec::new();
+                        for e in exprs.iter() {
+                            let e = e.type_inference(self.problem);
+                            let e = self.to_int(&e);
+                            v.push(e);
+                        }
+                        z3::ast::Int::add(self.ctx, &v.iter().collect::<Vec<_>>())
+                    }
+
+                    QtOp::Prod => {
+                        let mut v = Vec::new();
+                        for e in exprs.iter() {
+                            let e = e.type_inference(self.problem);
+                            let e = self.to_int(&e);
+                            v.push(e);
+                        }
+                        z3::ast::Int::mul(self.ctx, &v.iter().collect::<Vec<_>>())
+                    }
+                    QtOp::Min => self.to_int(&Expr::Nary(NaryOp::Min, exprs, None)),
+                    QtOp::Max => self.to_int(&Expr::Nary(NaryOp::Max, exprs, None)),
                     _ => panic!("to_int {:?}", expr),
                 }
             }
@@ -1061,6 +1088,22 @@ impl<'a> Smt<'a> {
                     }
                 } else {
                     panic!()
+                }
+            }
+            Expr::Nary(op, v, _) => {
+                if let Some((last, others)) = v.split_last() {
+                    let mut x = self.to_real(last);
+                    for e in others.iter() {
+                        let y = self.to_real(e);
+                        let cond = match op {
+                            NaryOp::Min => x.le(&y),
+                            NaryOp::Max => x.ge(&y),
+                        };
+                        x = cond.ite(&x, &y);
+                    }
+                    x
+                } else {
+                    panic!("to_real {:?}", expr)
                 }
             }
             Expr::Variable(id, _) => self.real_variable(*id).clone(),
@@ -1111,15 +1154,27 @@ impl<'a> Smt<'a> {
             }
             Expr::Quantifier(op, p, e, _) => {
                 let exprs = combine_all(self.problem, p, e);
-                let mut v = Vec::new();
-                for e in exprs {
-                    let e = e.type_inference(self.problem);
-                    let e = self.to_real(&e);
-                    v.push(e);
-                }
                 match op {
-                    QtOp::Sum => z3::ast::Real::add(self.ctx, &v.iter().collect::<Vec<_>>()),
-                    QtOp::Prod => z3::ast::Real::mul(self.ctx, &v.iter().collect::<Vec<_>>()),
+                    QtOp::Sum => {
+                        let mut v = Vec::new();
+                        for e in exprs.iter() {
+                            let e = e.type_inference(self.problem);
+                            let e = self.to_real(&e);
+                            v.push(e);
+                        }
+                        z3::ast::Real::add(self.ctx, &v.iter().collect::<Vec<_>>())
+                    }
+                    QtOp::Prod => {
+                        let mut v = Vec::new();
+                        for e in exprs.iter() {
+                            let e = e.type_inference(self.problem);
+                            let e = self.to_real(&e);
+                            v.push(e);
+                        }
+                        z3::ast::Real::mul(self.ctx, &v.iter().collect::<Vec<_>>())
+                    }
+                    QtOp::Min => self.to_real(&Expr::Nary(NaryOp::Min, exprs, None)),
+                    QtOp::Max => self.to_real(&Expr::Nary(NaryOp::Max, exprs, None)),
                     _ => panic!("to_real {:?}", expr),
                 }
             }

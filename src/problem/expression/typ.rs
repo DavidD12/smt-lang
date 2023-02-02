@@ -55,6 +55,34 @@ impl Expr {
                 },
                 BinOp::Div => Type::Real,
             },
+            Expr::Nary(o, v, _) => {
+                if let Some((first, others)) = v.split_first() {
+                    let mut t = first.typ(problem);
+                    for e in others {
+                        let tt = t.clone();
+                        let te = e.typ(problem);
+                        if tt != te {
+                            match (tt, te) {
+                                (Type::Interval(min1, max1), Type::Interval(min2, max2)) => match o
+                                {
+                                    NaryOp::Min => {
+                                        t = Type::Interval(min1.min(min2), max1.min(max2))
+                                    }
+                                    NaryOp::Max => {
+                                        t = Type::Interval(min1.max(min2), max1.max(max2))
+                                    }
+                                },
+                                (Type::Int, Type::Interval(_, _)) => {}
+                                (Type::Interval(_, _), Type::Int) => t = Type::Int,
+                                _ => return Type::Undefined,
+                            }
+                        }
+                    }
+                    t
+                } else {
+                    Type::Undefined
+                }
+            }
             Expr::FunctionCall(id, _, _) => problem.get(*id).unwrap().typ().clone(),
             Expr::Instance(id, _) => problem.get(*id).unwrap().typ().clone(),
             Expr::Variable(id, _) => problem.get(*id).unwrap().typ().clone(),
@@ -92,6 +120,8 @@ impl Expr {
                     Type::Interval(_, _) => Type::Int,
                     _ => Type::Undefined,
                 },
+                QtOp::Min => e.typ(problem),
+                QtOp::Max => e.typ(problem),
             },
             Expr::Unresolved(_, _) => Type::Undefined,
             Expr::UnresolvedFunCall(_, _, _) => Type::Undefined,

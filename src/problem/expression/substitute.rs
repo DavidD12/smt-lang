@@ -17,6 +17,10 @@ impl Expr {
                     let right = Box::new(right.substitute(old, expr));
                     Expr::Binary(left, *op, right, pos.clone())
                 }
+                Expr::Nary(op, kids, pos) => {
+                    let v = kids.iter().map(|p| p.substitute(old, expr)).collect();
+                    Expr::Nary(*op, v, pos.clone())
+                }
                 Expr::FunctionCall(id, params, pos) => {
                     let params = params.iter().map(|p| p.substitute(old, expr)).collect();
                     Expr::FunctionCall(*id, params, pos.clone())

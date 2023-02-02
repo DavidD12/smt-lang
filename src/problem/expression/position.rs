@@ -10,6 +10,7 @@ impl WithPosition for Expr {
             Expr::RealValue(_, p) => p,
             Expr::Unary(_, _, p) => p,
             Expr::Binary(_, _, _, p) => p,
+            Expr::Nary(_, _, p) => p,
             Expr::FunctionCall(_, _, p) => p,
             Expr::Variable(_, p) => p,
             Expr::Parameter(p) => &p.position(),

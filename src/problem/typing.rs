@@ -10,8 +10,10 @@ pub enum Type {
     Interval(isize, isize),
     Structure(StructureId),
     Class(ClassId),
+    //
     Unresolved(String, Option<Position>),
     Undefined,
+    // Error,
 }
 
 impl Type {
@@ -23,19 +25,15 @@ impl Type {
             Type::Interval(_, _) => true,
             Type::Structure(_) => true,
             Type::Class(_) => true,
+            //
             Type::Unresolved(_, _) => false,
             Type::Undefined => false,
+            // Type::Error => false,
         }
     }
 
     pub fn resolve_type(&self, entries: &TypeEntries) -> Result<Type, Error> {
         match self {
-            Type::Bool => Ok(self.clone()),
-            Type::Int => Ok(self.clone()),
-            Type::Real => Ok(self.clone()),
-            Type::Interval(_, _) => Ok(self.clone()),
-            Type::Structure(_) => Ok(self.clone()),
-            Type::Class(_) => Ok(self.clone()),
             Type::Unresolved(name, position) => match entries.get(&name) {
                 Some(entry) => match entry.typ() {
                     TypeEntryType::Structure(id) => Ok(Type::Structure(id)),
@@ -47,7 +45,7 @@ impl Type {
                     position: position.clone(),
                 }),
             },
-            Type::Undefined => todo!(),
+            _ => Ok(self.clone()),
         }
     }
 
@@ -234,8 +232,10 @@ impl ToLang for Type {
             Type::Interval(min, max) => format!("{}..{}", min, max),
             Type::Structure(id) => problem.get(*id).unwrap().name().to_string(),
             Type::Class(id) => problem.get(*id).unwrap().name().to_string(),
+            //
             Type::Unresolved(name, _) => format!("{}?", name),
             Type::Undefined => "?".into(),
+            // Type::Error => "type_error".into(),
         }
     }
 }

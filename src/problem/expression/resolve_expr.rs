@@ -21,6 +21,13 @@ impl Expr {
                     position.clone(),
                 ))
             }
+            Expr::Nary(op, kids, position) => {
+                let mut v: Vec<Expr> = vec![];
+                for e in kids.iter() {
+                    v.push(e.resolve(problem, entries)?);
+                }
+                Ok(Self::Nary(*op, v, position.clone()))
+            }
             //
             Expr::FunctionCall(id, parameters, position) => {
                 let mut v: Vec<Expr> = vec![];

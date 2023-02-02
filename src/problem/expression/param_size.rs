@@ -11,6 +11,12 @@ impl Expr {
                 l.check_parameter_size(problem)?;
                 r.check_parameter_size(problem)
             }
+            Expr::Nary(_, v, _) => {
+                for e in v.iter() {
+                    e.check_parameter_size(problem)?;
+                }
+                Ok(())
+            }
             Expr::FunctionCall(id, v, _) => {
                 for x in v.iter() {
                     x.check_parameter_size(problem)?;

@@ -20,6 +20,23 @@ impl std::fmt::Display for UnaryOp {
     }
 }
 
+//-------------------------------------------------- Nary --------------------------------------------------
+
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum NaryOp {
+    Min,
+    Max,
+}
+
+impl std::fmt::Display for NaryOp {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Min => write!(f, "min"),
+            Self::Max => write!(f, "max"),
+        }
+    }
+}
+
 //-------------------------------------------------- Bin --------------------------------------------------
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
@@ -71,6 +88,8 @@ pub enum QtOp {
     Exists,
     Sum,
     Prod,
+    Min,
+    Max,
 }
 
 impl std::fmt::Display for QtOp {
@@ -80,6 +99,8 @@ impl std::fmt::Display for QtOp {
             QtOp::Exists => write!(f, "exists"),
             QtOp::Sum => write!(f, "sum"),
             QtOp::Prod => write!(f, "prod"),
+            QtOp::Min => write!(f, "min"),
+            QtOp::Max => write!(f, "max"),
         }
     }
 }
@@ -95,6 +116,8 @@ pub enum Expr {
     Unary(UnaryOp, Box<Expr>, Option<Position>),
     //
     Binary(Box<Expr>, BinOp, Box<Expr>, Option<Position>),
+    //
+    Nary(NaryOp, Vec<Expr>, Option<Position>),
     //
     Variable(VariableId, Option<Position>),
     Parameter(Parameter),
@@ -151,6 +174,17 @@ impl ToLang for Expr {
                 op,
                 right.to_lang(problem)
             ),
+            Expr::Nary(op, kids, _) => {
+                let mut s = format!("{}(", op);
+                if let Some((first, others)) = kids.split_first() {
+                    s.push_str(&first.to_lang(problem));
+                    for p in others.iter() {
+                        s.push_str(&format!(", {}", p.to_lang(problem)));
+                    }
+                }
+                s.push_str(")");
+                s
+            }
             Expr::FunctionCall(id, params, _) => {
                 let fun = problem.get(*id).unwrap();
                 let mut s = format!("{}(", fun.name());

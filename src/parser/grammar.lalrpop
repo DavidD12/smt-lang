@@ -254,14 +254,13 @@ UnaryExpr: Expr = {
         let position = Some(Position::new(parser.file(), lookup, l));
         Expr::Unary(op, Box::new(e), position)
     },
-    PreNaryExpr,
+    NaryExpr,
 };
 
-PreNaryExpr: Expr = {
-    <l:@L><op:PreNaryOp> "(" <v: TupleExpr> ")" => {
+NaryExpr: Expr = {
+    <l:@L><op:NaryOp> <v: TupleExpr> => {
         let position = Some(Position::new(parser.file(), lookup, l));
-        // TODO Expr::UnaryNary(op, v, position)
-        todo!()
+        Expr::Nary(op, v, position)
     },
     FunCallExpr,
 };
@@ -319,18 +318,6 @@ QuantifierExpr: Expr = {
         let pos = Some(Position::new(parser.file(), lookup, l));
         let e = Box::new(e);
         Expr::Quantifier(op, p, e, pos)
-    },
-    <l:@L>"min" <p:Parameters> "|" <e:Expr> "end" => {
-        let pos = Some(Position::new(parser.file(), lookup, l));
-        let e = Box::new(e);
-        // Expr::Min(p, e, pos) // TODO
-        todo!()
-    },
-    <l:@L>"max" <p:Parameters> "|" <e:Expr> "end" => {
-        let pos = Some(Position::new(parser.file(), lookup, l));
-        let e = Box::new(e);
-        // Expr::Max(p, e, pos) // TODO
-        todo!()
     },
     Term
 };
@@ -397,11 +384,13 @@ QtOp: QtOp = {
     "exists" => QtOp::Exists,
     "sum" => QtOp::Sum,
     "prod" => QtOp::Prod,
+    "min" => QtOp::Min,
+    "max" => QtOp::Max,
 };
 
-PreNaryOp: UnaryOp = {
-    "min" => todo!(), // TODO PreNaryOp::Min,
-    "max" => todo!(), // TODO PreNaryOp::Max,
+NaryOp: NaryOp = {
+    "min" => NaryOp::Min,
+    "max" => NaryOp::Max,
 };
 
 //========================= Util =========================

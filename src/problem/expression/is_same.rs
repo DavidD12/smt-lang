@@ -18,6 +18,7 @@ impl IsSame for Expr {
             (Expr::Binary(l1, o1, r1, _), Expr::Binary(l2, o2, r2, _)) => {
                 o1 == o2 && l1.is_same(l2) && r1.is_same(r2)
             }
+            (Expr::Nary(o1, k1, _), Expr::Nary(o2, k2, _)) => o1 == o2 && Self::all_same(k1, k2),
             (Expr::FunctionCall(i1, p1, _), Expr::FunctionCall(i2, p2, _)) => {
                 i1 == i2 && Self::all_same(p1, p2)
             }
