@@ -149,6 +149,10 @@ impl Expr {
             Expr::UnresolvedAttribute(e, name, pos) => {
                 let e = e.resolve(problem, entries)?;
                 let t = e.typ(problem);
+                println!();
+                println!(">>>>> e: {} <<<<<", e.to_lang(problem));
+                println!(">>>>> t: {} <<<<<", t.to_lang(problem));
+                println!(">>>>> entries: {:#?} <<<<<", entries);
                 if let Type::Structure(id) = t {
                     if let Some(a) = problem.get(id).unwrap().find_attribute(name) {
                         Ok(Expr::StrucAttribute(Box::new(e), a.id(), pos.clone()))
@@ -176,7 +180,7 @@ impl Expr {
                         })
                     }
                 } else {
-                    panic!()
+                    panic!("unresolved expr {}", self.to_lang(problem))
                 }
             }
             Expr::UnresolvedMethCall(e, name, args, pos) => {

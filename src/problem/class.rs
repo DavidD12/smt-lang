@@ -289,10 +289,12 @@ impl Class {
         // Attribute
         for x in self.attributes.iter_mut() {
             x.resolve_type(entries)?;
+            x.resolve_type_expr(entries)?;
         }
         // Method
         for x in self.methods.iter_mut() {
             x.resolve_type(entries)?;
+            x.resolve_type_expr(entries)?;
         }
         //
         Ok(())

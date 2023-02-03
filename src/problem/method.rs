@@ -84,6 +84,16 @@ impl<T: Id> Method<T> {
         }
         Ok(())
     }
+
+    //---------- Resolve ----------
+
+    pub fn resolve_type_expr(&mut self, entries: &TypeEntries) -> Result<(), Error> {
+        if let Some(expr) = &self.expr {
+            let e = expr.resolve_type(entries)?;
+            self.expr = Some(e);
+        }
+        Ok(())
+    }
 }
 
 //------------------------- Postion -------------------------
