@@ -16,14 +16,28 @@ impl<'a> Z3Solver<'a> {
         }
     }
 
-    pub fn maximize(&self, ast: &z3::ast::Int<'a>) {
+    pub fn maximize_int(&self, ast: &z3::ast::Int<'a>) {
         match self {
             Z3Solver::Solve(_) => {}
             Z3Solver::Optimize(solver) => solver.maximize(ast),
         }
     }
 
-    pub fn minimize(&self, ast: &z3::ast::Int<'a>) {
+    pub fn minimize_int(&self, ast: &z3::ast::Int<'a>) {
+        match self {
+            Z3Solver::Solve(_) => {}
+            Z3Solver::Optimize(solver) => solver.minimize(ast),
+        }
+    }
+
+    pub fn maximize_real(&self, ast: &z3::ast::Real<'a>) {
+        match self {
+            Z3Solver::Solve(_) => {}
+            Z3Solver::Optimize(solver) => solver.maximize(ast),
+        }
+    }
+
+    pub fn minimize_real(&self, ast: &z3::ast::Real<'a>) {
         match self {
             Z3Solver::Solve(_) => {}
             Z3Solver::Optimize(solver) => solver.minimize(ast),
@@ -87,7 +101,7 @@ impl<'a> Smt<'a> {
     pub fn new(problem: &'a Problem, cfg: &'a z3::Config, ctx: &'a z3::Context) -> Self {
         let solver = match problem.search() {
             Search::Solve => Z3Solver::Solve(z3::Solver::new(&ctx)),
-            Search::Optimize(_, _) => Z3Solver::Optimize(z3::Optimize::new(&ctx)),
+            Search::Optimize(_, _, _) => Z3Solver::Optimize(z3::Optimize::new(&ctx)),
         };
         Self {
             problem,
@@ -727,13 +741,29 @@ impl<'a> Smt<'a> {
     pub fn add_search(&mut self) {
         match self.problem.search() {
             Search::Solve => {}
-            Search::Optimize(e, minimize) => {
+            Search::Optimize(e, bound, minimize) => {
                 let e = e.type_inference(self.problem);
-                let e = self.to_int(&e);
-                if *minimize {
-                    self.solver.minimize(&e);
-                } else {
-                    self.solver.maximize(&e);
+                match bound {
+                    Bound::Int(v) => {
+                        let b = Expr::IntValue(*v, None);
+                        if *minimize {
+                            let e = Expr::Nary(NaryOp::Max, vec![e, b], None);
+                            self.solver.minimize_int(&self.to_int(&e));
+                        } else {
+                            let e = Expr::Nary(NaryOp::Min, vec![e, b], None);
+                            self.solver.maximize_int(&self.to_int(&e));
+                        }
+                    }
+                    Bound::Real(v) => {
+                        let b = Expr::RealValue(*v, None);
+                        if *minimize {
+                            let e = Expr::Nary(NaryOp::Max, vec![e, b], None);
+                            self.solver.minimize_real(&self.to_real(&e));
+                        } else {
+                            let e = Expr::Nary(NaryOp::Min, vec![e, b], None);
+                            self.solver.maximize_real(&self.to_real(&e));
+                        }
+                    }
                 }
             }
         }

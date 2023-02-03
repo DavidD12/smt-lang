@@ -8,4 +8,4 @@ constraint c1 = (
     (min e: S | e.x end) >= 5
 )
 
-minimize ((max e: S | e.x end) as 0..100)
+minimize (max e: S | e.x end) until 10

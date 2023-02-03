@@ -394,7 +394,6 @@ impl Problem {
             x.check_type(self)?;
         }
         self.search.check_type(self)?;
-        self.search.check_bounded(self)?;
         Ok(())
     }
 

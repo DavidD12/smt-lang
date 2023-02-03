@@ -178,6 +178,18 @@ pub fn check_type_integer(expr: &Expr, expr_type: &Type) -> Result<(), Error> {
     }
 }
 
+pub fn check_type_real(expr: &Expr, expr_type: &Type) -> Result<(), Error> {
+    if expr_type.is_real() {
+        Ok(())
+    } else {
+        Err(Error::Type {
+            expr: expr.clone(),
+            typ: expr_type.clone(),
+            expected: vec![Type::Real],
+        })
+    }
+}
+
 pub fn check_compatible_type(
     problem: &Problem,
     left_type: &Type,

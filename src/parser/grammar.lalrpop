@@ -163,8 +163,13 @@ Constraint: () = "constraint" <i:Identifier> <e:Assign> => {
 
 Search: () = {
     "solve" => parser.problem.set_search(Search::Solve),
-    "minimize" <e:Expr> => parser.problem.set_search(Search::Optimize(Box::new(e), true)),
-    "maximize" <e:Expr> => parser.problem.set_search(Search::Optimize(Box::new(e), false)),
+    "minimize" <e:Expr> <b:Bound> => parser.problem.set_search(Search::Optimize(Box::new(e), b, true)),
+    "maximize" <e:Expr> <b:Bound> => parser.problem.set_search(Search::Optimize(Box::new(e), b, false)),
+};
+
+Bound:Bound = {
+    "until" <i:Integer> => Bound::Int(i as isize),
+    "until" <r:Decimal> => Bound::Real(r),
 };
 
 //------------------------- Parameter -------------------------

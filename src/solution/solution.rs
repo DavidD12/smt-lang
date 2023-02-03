@@ -52,7 +52,7 @@ impl Solution {
         // Objective
         let objective = match smt.problem().search() {
             Search::Solve => None,
-            Search::Optimize(e, _) => {
+            Search::Optimize(e, _, _) => {
                 let value = Value::new(smt, model, e);
                 Some(value)
             }
