@@ -11,6 +11,9 @@ struct Args {
     /// verbose level
     #[arg(short, long, default_value_t = 1)]
     verbose: u8,
+    /// parallel N (number of threads)
+    #[arg(short, long, default_value_t = 1)]
+    parallel: u32,
 }
 
 fn main() {
@@ -26,7 +29,7 @@ fn main() {
                 pretty.add(problem.to_entry());
                 pretty.print();
             }
-            let response = solve(&mut pretty, &problem, args.verbose);
+            let response = solve(&mut pretty, &problem, args.verbose, args.parallel);
             pretty.add(response.to_entry(&problem));
             if args.verbose > 0 {
                 pretty.print();

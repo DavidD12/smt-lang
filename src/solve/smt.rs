@@ -57,6 +57,19 @@ impl<'a> Z3Solver<'a> {
             Z3Solver::Optimize(solver) => solver.get_model(),
         }
     }
+
+    pub fn set_threads(&self, ctx: &'a z3::Context, threads: u32) {
+        match self {
+            Z3Solver::Solve(solver) => {
+                let mut params = z3::Params::new(ctx);
+                params.set_u32("threads", threads);
+                solver.set_params(&params);
+            }
+            Z3Solver::Optimize(solver) => {
+                todo!()
+            }
+        }
+    }
 }
 
 impl<'a> std::fmt::Display for Z3Solver<'a> {
