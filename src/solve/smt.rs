@@ -1,92 +1,15 @@
+use super::*;
 use crate::combine::*;
 use crate::problem::*;
 use std::collections::HashMap;
 use z3::ast::Ast;
-
-pub enum Z3Solver<'a> {
-    Solve(z3::Solver<'a>),
-    Optimize(z3::Optimize<'a>),
-}
-
-impl<'a> Z3Solver<'a> {
-    pub fn assert(&self, ast: &z3::ast::Bool<'a>) {
-        match self {
-            Z3Solver::Solve(solver) => solver.assert(ast),
-            Z3Solver::Optimize(solver) => solver.assert(ast),
-        }
-    }
-
-    pub fn maximize_int(&self, ast: &z3::ast::Int<'a>) {
-        match self {
-            Z3Solver::Solve(_) => {}
-            Z3Solver::Optimize(solver) => solver.maximize(ast),
-        }
-    }
-
-    pub fn minimize_int(&self, ast: &z3::ast::Int<'a>) {
-        match self {
-            Z3Solver::Solve(_) => {}
-            Z3Solver::Optimize(solver) => solver.minimize(ast),
-        }
-    }
-
-    pub fn maximize_real(&self, ast: &z3::ast::Real<'a>) {
-        match self {
-            Z3Solver::Solve(_) => {}
-            Z3Solver::Optimize(solver) => solver.maximize(ast),
-        }
-    }
-
-    pub fn minimize_real(&self, ast: &z3::ast::Real<'a>) {
-        match self {
-            Z3Solver::Solve(_) => {}
-            Z3Solver::Optimize(solver) => solver.minimize(ast),
-        }
-    }
-
-    pub fn check(&self) -> z3::SatResult {
-        match self {
-            Z3Solver::Solve(solver) => solver.check(),
-            Z3Solver::Optimize(solver) => solver.check(&[]),
-        }
-    }
-
-    pub fn get_model(&self) -> Option<z3::Model> {
-        match self {
-            Z3Solver::Solve(solver) => solver.get_model(),
-            Z3Solver::Optimize(solver) => solver.get_model(),
-        }
-    }
-
-    pub fn set_threads(&self, ctx: &'a z3::Context, threads: u32) {
-        match self {
-            Z3Solver::Solve(solver) => {
-                let mut params = z3::Params::new(ctx);
-                params.set_u32("threads", threads);
-                solver.set_params(&params);
-            }
-            Z3Solver::Optimize(solver) => {
-                todo!()
-            }
-        }
-    }
-}
-
-impl<'a> std::fmt::Display for Z3Solver<'a> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Z3Solver::Solve(solver) => write!(f, "{}", solver),
-            Z3Solver::Optimize(solver) => write!(f, "{}", solver),
-        }
-    }
-}
 
 pub struct Smt<'a> {
     problem: &'a Problem,
     //
     _cfg: &'a z3::Config,
     ctx: &'a z3::Context,
-    solver: Z3Solver<'a>,
+    solver: &'a Z3Solver<'a>,
     // Structure
     struc_sort: HashMap<StructureId, z3::Sort<'a>>,
     struc_instances: HashMap<InstanceId, z3::ast::Datatype<'a>>,
@@ -111,11 +34,12 @@ pub struct Smt<'a> {
 }
 
 impl<'a> Smt<'a> {
-    pub fn new(problem: &'a Problem, cfg: &'a z3::Config, ctx: &'a z3::Context) -> Self {
-        let solver = match problem.search() {
-            Search::Solve => Z3Solver::Solve(z3::Solver::new(&ctx)),
-            Search::Optimize(_, _, _) => Z3Solver::Optimize(z3::Optimize::new(&ctx)),
-        };
+    pub fn new(
+        problem: &'a Problem,
+        cfg: &'a z3::Config,
+        ctx: &'a z3::Context,
+        solver: &'a Z3Solver<'a>,
+    ) -> Self {
         Self {
             problem,
             _cfg: cfg,
@@ -751,36 +675,36 @@ impl<'a> Smt<'a> {
 
     //------------------------- Search -------------------------
 
-    pub fn add_search(&mut self) {
-        match self.problem.search() {
-            Search::Solve => {}
-            Search::Optimize(e, bound, minimize) => {
-                let e = e.type_inference(self.problem);
-                match bound {
-                    Bound::Int(v) => {
-                        let b = Expr::IntValue(*v, None);
-                        if *minimize {
-                            let e = Expr::Nary(NaryOp::Max, vec![e, b], None);
-                            self.solver.minimize_int(&self.to_int(&e));
-                        } else {
-                            let e = Expr::Nary(NaryOp::Min, vec![e, b], None);
-                            self.solver.maximize_int(&self.to_int(&e));
-                        }
-                    }
-                    Bound::Real(v) => {
-                        let b = Expr::RealValue(*v, None);
-                        if *minimize {
-                            let e = Expr::Nary(NaryOp::Max, vec![e, b], None);
-                            self.solver.minimize_real(&self.to_real(&e));
-                        } else {
-                            let e = Expr::Nary(NaryOp::Min, vec![e, b], None);
-                            self.solver.maximize_real(&self.to_real(&e));
-                        }
-                    }
-                }
-            }
-        }
-    }
+    // pub fn add_search(&mut self) {
+    //     match self.problem.search() {
+    //         Search::Solve => {}
+    //         Search::Optimize(e, bound, minimize) => {
+    //             let e = e.type_inference(self.problem);
+    //             match bound {
+    //                 Bound::Int(v) => {
+    //                     let b = Expr::IntValue(*v, None);
+    //                     if *minimize {
+    //                         let e = Expr::Nary(NaryOp::Max, vec![e, b], None);
+    //                         self.solver.minimize_int(&self.to_int(&e));
+    //                     } else {
+    //                         let e = Expr::Nary(NaryOp::Min, vec![e, b], None);
+    //                         self.solver.maximize_int(&self.to_int(&e));
+    //                     }
+    //                 }
+    //                 Bound::Real(v) => {
+    //                     let b = Expr::RealValue(*v, None);
+    //                     if *minimize {
+    //                         let e = Expr::Nary(NaryOp::Max, vec![e, b], None);
+    //                         self.solver.minimize_real(&self.to_real(&e));
+    //                     } else {
+    //                         let e = Expr::Nary(NaryOp::Min, vec![e, b], None);
+    //                         self.solver.maximize_real(&self.to_real(&e));
+    //                     }
+    //                 }
+    //             }
+    //         }
+    //     }
+    // }
 
     //------------------------- Expr -------------------------
 
@@ -1336,7 +1260,7 @@ impl<'a> Smt<'a> {
         // Constraint
         self.add_constraints();
         // Search
-        self.add_search();
+        // self.add_search();
     }
 
     //------------------------- To Entry -------------------------

@@ -23,6 +23,13 @@ pub enum Search {
 }
 
 impl Search {
+    pub fn is_optimize(&self) -> bool {
+        match self {
+            Search::Solve => false,
+            Search::Optimize(_, _, _) => true,
+        }
+    }
+
     pub fn resolve_type_expr(&self, entries: &TypeEntries) -> Result<Self, Error> {
         match self {
             Search::Solve => Ok(self.clone()),
